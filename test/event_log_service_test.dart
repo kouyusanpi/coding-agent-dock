@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:claude_code_cli_flutter/services/event_log_service.dart';
+import 'package:coding_agent_dock/services/event_log_service.dart';
 
 void main() {
   group('EventLogService', () {

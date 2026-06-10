@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
 
-import 'package:claude_code_cli_flutter/app.dart';
-import 'package:claude_code_cli_flutter/database/database.dart';
-import 'package:claude_code_cli_flutter/screens/new_session_dialog.dart';
-import 'package:claude_code_cli_flutter/services/settings_service.dart';
+import 'package:coding_agent_dock/app.dart';
+import 'package:coding_agent_dock/database/database.dart';
+import 'package:coding_agent_dock/screens/new_session_dialog.dart';
+import 'package:coding_agent_dock/services/settings_service.dart';
 
 void main() {
   patrolTest('app boots, detects CLIs and shows the home screen',

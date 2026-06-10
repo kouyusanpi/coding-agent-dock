@@ -5,8 +5,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:claude_code_cli_flutter/l10n/app_localizations.dart';
-import 'package:claude_code_cli_flutter/widgets/attachment_strip.dart';
+import 'package:coding_agent_dock/l10n/app_localizations.dart';
+import 'package:coding_agent_dock/widgets/attachment_strip.dart';
 
 /// Minimal valid 1×1 red PNG.
 final Uint8List kTinyPng = base64Decode(

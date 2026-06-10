@@ -3,9 +3,9 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:claude_code_cli_flutter/l10n/app_localizations.dart';
-import 'package:claude_code_cli_flutter/services/settings_service.dart';
-import 'package:claude_code_cli_flutter/widgets/app_sidebar.dart';
+import 'package:coding_agent_dock/l10n/app_localizations.dart';
+import 'package:coding_agent_dock/services/settings_service.dart';
+import 'package:coding_agent_dock/widgets/app_sidebar.dart';
 
 Widget _app() => MaterialApp(
       localizationsDelegates: const [

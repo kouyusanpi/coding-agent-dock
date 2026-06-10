@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:claude_code_cli_flutter/widgets/quick_commands_bar.dart';
+import 'package:coding_agent_dock/widgets/quick_commands_bar.dart';
 
 void main() {
   Widget host(ValueChanged<String> onSend) => MaterialApp(

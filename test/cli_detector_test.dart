@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:claude_code_cli_flutter/models/agent_cli.dart';
-import 'package:claude_code_cli_flutter/services/cli_detector.dart';
+import 'package:coding_agent_dock/models/agent_cli.dart';
+import 'package:coding_agent_dock/services/cli_detector.dart';
 
 AgentCli _makeCli(String id) => AgentCli(
       id: id,

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:claude_code_cli_flutter/models/claude_settings.dart';
+import 'package:coding_agent_dock/models/claude_settings.dart';
 
 void main() {
   group('ClaudeSettings.toArgs', () {

@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:claude_code_cli_flutter/models/agent_cli.dart';
-import 'package:claude_code_cli_flutter/services/terminal_sessions_controller.dart';
-import 'package:claude_code_cli_flutter/theme/app_colors.dart';
-import 'package:claude_code_cli_flutter/widgets/task_panel.dart';
+import 'package:coding_agent_dock/models/agent_cli.dart';
+import 'package:coding_agent_dock/services/terminal_sessions_controller.dart';
+import 'package:coding_agent_dock/theme/app_colors.dart';
+import 'package:coding_agent_dock/widgets/task_panel.dart';
 
 AgentCli _cli() => AgentCli(
       id: 'claude',

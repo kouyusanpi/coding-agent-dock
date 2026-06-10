@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:claude_code_cli_flutter/services/process_monitor_service.dart';
+import 'package:coding_agent_dock/services/process_monitor_service.dart';
 
 void main() {
   group('ProcessStats labels', () {

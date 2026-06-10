@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
-import 'package:claude_code_cli_flutter/models/skill.dart';
-import 'package:claude_code_cli_flutter/services/skill_service.dart';
+import 'package:coding_agent_dock/models/skill.dart';
+import 'package:coding_agent_dock/services/skill_service.dart';
 
 void main() {
   group('Skill.parse', () {

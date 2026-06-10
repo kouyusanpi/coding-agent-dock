@@ -20,6 +20,7 @@ import '../services/export_service.dart';
 import '../services/helpers_script_service.dart';
 import '../services/ipc_server.dart';
 import '../services/pipeline_rule_service.dart';
+import '../services/notification_service.dart';
 import '../services/project_memory_service.dart';
 import '../services/session_manager.dart';
 import '../services/session_template_service.dart';
@@ -241,6 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _terminals.ipcPort = _ipcServer.port;
       _ipcSub = _ipcServer.events.listen(_onIpcEvent);
       unawaited(HelpersScriptService.write());
+      unawaited(_ipcServer.loadKv(HelpersScriptService.kvStorePath));
       _terminals.helpersScriptPath = HelpersScriptService.path;
 
       _ipcServer.onGetSessions = () => _terminals.openTerminals
@@ -1053,21 +1055,34 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // Watchdog: auto-retry failed sessions if enabled.
+    bool watchdogRetried = false;
     if (!success && SettingsService.watchdogEnabled) {
-      await _maybeWatchdogRetry(session);
+      watchdogRetried = await _maybeWatchdogRetry(session);
     } else if (success) {
       // Clear retry state on success.
       _retryCount.remove(event.sessionId);
     }
+
+    // Notify when the session truly ended (not mid-watchdog-retry).
+    if (!watchdogRetried) {
+      final agentName =
+          _agentFor(session.agentCliId)?.displayName ?? session.agentCliId;
+      unawaited(NotificationService.taskFinished(
+        taskName: session.name,
+        agentName: agentName,
+        status: success ? 'completed' : 'failed',
+      ));
+    }
   }
 
   /// Auto-retry [session] if the watchdog policy allows it.
-  Future<void> _maybeWatchdogRetry(TaskSession session) async {
+  /// Returns true when a retry was actually launched, false otherwise.
+  Future<bool> _maybeWatchdogRetry(TaskSession session) async {
     final minRun = SettingsService.watchdogMinRunSeconds;
     final ranFor = session.durationMs != null
         ? session.durationMs! ~/ 1000
         : 0;
-    if (ranFor < minRun) return; // crashed too fast — don't retry
+    if (ranFor < minRun) return false; // crashed too fast — don't retry
 
     final count = (_retryCount[session.id] ?? 0) + 1;
     if (count > SettingsService.watchdogMaxRetries) {
@@ -1077,6 +1092,14 @@ class _HomeScreenState extends State<HomeScreen> {
         sessionName: session.name,
         detail: 'max ${SettingsService.watchdogMaxRetries} retries',
       );
+      // Notify: watchdog gave up — user needs to know even when backgrounded.
+      final agentName =
+          _agentFor(session.agentCliId)?.displayName ?? session.agentCliId;
+      unawaited(NotificationService.taskFinished(
+        taskName: session.name,
+        agentName: agentName,
+        status: 'failed',
+      ));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1103,17 +1126,17 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       }
-      return;
+      return false;
     }
 
     final agent = _agentFor(session.agentCliId);
-    if (agent == null || !mounted) return;
+    if (agent == null || !mounted) return false;
 
     _retryCount[session.id] = count;
 
     // Brief delay before retry so the user can see what happened.
     await Future<void>.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
+    if (!mounted) return false;
 
     final newId = await _sessionManager.createSession(
       name: session.name,
@@ -1154,7 +1177,9 @@ class _HomeScreenState extends State<HomeScreen> {
           margin: const EdgeInsets.all(16),
         ),
       );
+      return true;
     }
+    return false;
   }
 
   /// Set (or clear when [cli] is null) an auto-relay target for a session.

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:claude_code_cli_flutter/services/settings_service.dart';
-import 'package:claude_code_cli_flutter/theme/app_spacing.dart';
-import 'package:claude_code_cli_flutter/widgets/app_layout.dart';
+import 'package:coding_agent_dock/services/settings_service.dart';
+import 'package:coding_agent_dock/theme/app_spacing.dart';
+import 'package:coding_agent_dock/widgets/app_layout.dart';
 
 Widget _app() => MaterialApp(
       home: AppLayout(

@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
-import 'package:claude_code_cli_flutter/services/project_memory_service.dart';
+import 'package:coding_agent_dock/services/project_memory_service.dart';
 
 void main() {
   group('memoryFileNameFor', () {

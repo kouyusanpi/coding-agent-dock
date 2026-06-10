@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:claude_code_cli_flutter/models/pipeline_rule.dart';
-import 'package:claude_code_cli_flutter/services/pipeline_rule_service.dart';
+import 'package:coding_agent_dock/models/pipeline_rule.dart';
+import 'package:coding_agent_dock/services/pipeline_rule_service.dart';
 
 void main() {
   setUp(() {

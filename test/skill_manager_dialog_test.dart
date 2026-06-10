@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
-import 'package:claude_code_cli_flutter/widgets/skill_manager_dialog.dart';
+import 'package:coding_agent_dock/widgets/skill_manager_dialog.dart';
 
 Widget _host(String workingDir) => MaterialApp(
       home: Scaffold(

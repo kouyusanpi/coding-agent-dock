@@ -25,6 +25,12 @@ class HelpersScriptService {
     return p.join(home, _dirName, _fileName);
   }
 
+  /// Absolute path for the persistent KV store JSON file.
+  static String get kvStorePath {
+    final home = Platform.environment['HOME'] ?? '';
+    return p.join(home, _dirName, 'kv.json');
+  }
+
   /// Write (or overwrite) the helpers script. Silently no-ops on failure.
   static Future<void> write() async {
     try {
@@ -46,6 +52,45 @@ class HelpersScriptService {
 #   AGENTDOCK_API_BASE   — base URL, e.g. http://127.0.0.1:PORT/v1
 #   AGENTDOCK_IPC_URL    — your session's event endpoint
 #   AGENTDOCK_SESSION_ID — your session ID
+
+# --- Internal: JSON field extractor (jq if available, otherwise python3) ---
+# Usage: _ad_json FIELD [JSON_STRING]
+# If JSON_STRING is omitted, reads from stdin.
+_ad_json() {
+  local field="$1"
+  local input
+  if [[ $# -ge 2 ]]; then
+    input="$2"
+  else
+    input="$(cat)"
+  fi
+  if command -v jq &>/dev/null; then
+    printf '%s' "$input" | jq -r ".${field} // empty" 2>/dev/null
+  else
+    printf '%s' "$input" | \
+      python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('${field}',''), end='')" \
+      2>/dev/null
+  fi
+}
+
+# --- Internal: extract array of values from a JSON array of objects ---
+# Usage: _ad_json_arr FIELD FILTER_KEY FILTER_VAL [JSON_STRING]
+_ad_json_arr() {
+  local field="$1" fk="$2" fv="$3"
+  local input
+  if [[ $# -ge 4 ]]; then input="$4"; else input="$(cat)"; fi
+  if command -v jq &>/dev/null; then
+    printf '%s' "$input" | \
+      jq -r ".${field}[] | select(.${fk}==\"${fv}\") | .id" 2>/dev/null
+  else
+    printf '%s' "$input" | \
+      python3 -c "
+import sys,json
+data=json.loads(sys.stdin.read())
+[print(s['id']) for s in data.get('${field}',[]) if s.get('${fk}')==sys.argv[1]]
+" "$fv" 2>/dev/null
+  fi
+}
 
 # List all running agent sessions (JSON).
 agentdock_list() {
@@ -79,9 +124,7 @@ agentdock_wait() {
       echo "session $id not found" >&2
       return 2
     fi
-    sess_status="$(printf '%s' "$body" | \
-      python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" \
-      2>/dev/null)"
+    sess_status="$(_ad_json status "$body")"
     if [[ -n "$sess_status" && "$sess_status" != "running" ]]; then
       printf '%s\n' "$sess_status"
       return 0
@@ -110,9 +153,14 @@ agentdock_stream() {
   curl -sf "${AGENTDOCK_API_BASE}/sessions/${id}/output/stream" | \
     while IFS= read -r line; do
       if [[ "$line" == data:* ]]; then
-        printf '%s' "${line#data: }" | \
-          python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('text',''), end='')" \
-          2>/dev/null || printf '%s\n' "${line#data: }"
+        local payload="${line#data: }"
+        local text
+        text="$(_ad_json text "$payload")"
+        if [[ -n "$text" ]]; then
+          printf '%s' "$text"
+        else
+          printf '%s\n' "$payload"
+        fi
       fi
     done
 }
@@ -144,9 +192,16 @@ agentdock_notify() {
 # Print the IDs of all currently running sessions.
 # Usage: agentdock_running_ids
 agentdock_running_ids() {
-  agentdock_list | \
-    python3 -c "import sys,json; [print(s['id']) for s in json.load(sys.stdin).get('sessions',[]) if s.get('status')=='running']" \
-    2>/dev/null
+  local list
+  list="$(agentdock_list 2>/dev/null)"
+  if command -v jq &>/dev/null; then
+    printf '%s' "$list" | \
+      jq -r '.sessions[] | select(.status=="running") | .id' 2>/dev/null
+  else
+    printf '%s' "$list" | \
+      python3 -c "import sys,json; [print(s['id']) for s in json.load(sys.stdin).get('sessions',[]) if s.get('status')=='running']" \
+      2>/dev/null
+  fi
 }
 
 # Broadcast a message to all running sessions except the current one.
@@ -159,6 +214,68 @@ agentdock_broadcast() {
       agentdock_inject "$id" "$msg"
     fi
   done < <(agentdock_running_ids)
+}
+
+# --- Shared Key-Value Store ---
+# Agents can store and retrieve named values via the KV API.
+# Values persist across app restarts (written to ~/.agentdock/kv.json).
+# Optional TTL makes an entry auto-expire.
+
+# Read a value by key. Prints the value, returns 1 if the key does not exist.
+# Usage: agentdock_kv_get KEY
+agentdock_kv_get() {
+  local key="${1:?Usage: agentdock_kv_get KEY}"
+  local resp
+  resp="$(curl -sf "${AGENTDOCK_API_BASE}/kv/${key}")" || return 1
+  _ad_json value "$resp"
+}
+
+# Write a value. Optional TTL (integer seconds) makes the entry auto-expire.
+# Usage: agentdock_kv_set KEY VALUE [TTL_SECONDS]
+agentdock_kv_set() {
+  local key="${1:?Usage: agentdock_kv_set KEY VALUE [TTL]}"
+  local value="${2?Usage: agentdock_kv_set KEY VALUE [TTL]}"
+  local ttl="${3:-0}"
+  local payload
+  if command -v jq &>/dev/null; then
+    if [[ "$ttl" -gt 0 ]]; then
+      payload="$(jq -n --arg v "$value" --argjson t "$ttl" '{"value":$v,"ttl":$t}')"
+    else
+      payload="$(jq -n --arg v "$value" '{"value":$v}')"
+    fi
+  else
+    local escaped_value
+    escaped_value="$(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$value")"
+    if [[ "$ttl" -gt 0 ]]; then
+      payload="{\"value\": ${escaped_value}, \"ttl\": ${ttl}}"
+    else
+      payload="{\"value\": ${escaped_value}}"
+    fi
+  fi
+  curl -sf -X POST "${AGENTDOCK_API_BASE}/kv/${key}" \
+    -H "Content-Type: application/json" \
+    -d "$payload" > /dev/null
+}
+
+# Delete a key from the KV store.
+# Usage: agentdock_kv_del KEY
+agentdock_kv_del() {
+  local key="${1:?Usage: agentdock_kv_del KEY}"
+  curl -sf -X DELETE "${AGENTDOCK_API_BASE}/kv/${key}" > /dev/null
+}
+
+# List all live keys in the KV store (one per line).
+# Usage: agentdock_kv_list
+agentdock_kv_list() {
+  local resp
+  resp="$(curl -sf "${AGENTDOCK_API_BASE}/kv")"
+  if command -v jq &>/dev/null; then
+    printf '%s' "$resp" | jq -r '.keys[]' 2>/dev/null
+  else
+    printf '%s' "$resp" | \
+      python3 -c "import sys,json; [print(k) for k in json.load(sys.stdin).get('keys',[])]" \
+      2>/dev/null
+  fi
 }
 ''';
 }

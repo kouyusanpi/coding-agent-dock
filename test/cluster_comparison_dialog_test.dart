@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
-import 'package:claude_code_cli_flutter/database/database.dart';
-import 'package:claude_code_cli_flutter/l10n/app_localizations.dart';
-import 'package:claude_code_cli_flutter/widgets/cluster_comparison_dialog.dart';
+import 'package:coding_agent_dock/database/database.dart';
+import 'package:coding_agent_dock/l10n/app_localizations.dart';
+import 'package:coding_agent_dock/widgets/cluster_comparison_dialog.dart';
 
 TaskSession _makeSession({
   required int id,

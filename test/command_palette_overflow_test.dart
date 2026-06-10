@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:claude_code_cli_flutter/l10n/app_localizations.dart';
-import 'package:claude_code_cli_flutter/models/session_template.dart';
-import 'package:claude_code_cli_flutter/widgets/command_palette.dart';
+import 'package:coding_agent_dock/l10n/app_localizations.dart';
+import 'package:coding_agent_dock/models/session_template.dart';
+import 'package:coding_agent_dock/widgets/command_palette.dart';
 
 SessionTemplate _tpl(int i) => SessionTemplate(
       id: 'id-$i',

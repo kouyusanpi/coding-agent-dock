@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:claude_code_cli_flutter/database/database.dart';
-import 'package:claude_code_cli_flutter/l10n/app_localizations.dart';
-import 'package:claude_code_cli_flutter/models/agent_cli.dart';
-import 'package:claude_code_cli_flutter/services/session_manager.dart';
-import 'package:claude_code_cli_flutter/services/terminal_sessions_controller.dart';
-import 'package:claude_code_cli_flutter/widgets/task_panel.dart';
+import 'package:coding_agent_dock/database/database.dart';
+import 'package:coding_agent_dock/l10n/app_localizations.dart';
+import 'package:coding_agent_dock/models/agent_cli.dart';
+import 'package:coding_agent_dock/services/session_manager.dart';
+import 'package:coding_agent_dock/services/terminal_sessions_controller.dart';
+import 'package:coding_agent_dock/widgets/task_panel.dart';
 
 /// Create a minimal TaskSession for testing.
 TaskSession _session(int id, String name, String agentCliId, {

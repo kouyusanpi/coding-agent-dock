@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:claude_code_cli_flutter/l10n/app_localizations.dart';
-import 'package:claude_code_cli_flutter/services/event_log_service.dart';
-import 'package:claude_code_cli_flutter/widgets/event_log_panel.dart';
+import 'package:coding_agent_dock/l10n/app_localizations.dart';
+import 'package:coding_agent_dock/services/event_log_service.dart';
+import 'package:coding_agent_dock/widgets/event_log_panel.dart';
 
 /// Returns true if any RichText in the tree contains [substring] in its plain text.
 Finder richTextContaining(String substring) => find.byWidgetPredicate(

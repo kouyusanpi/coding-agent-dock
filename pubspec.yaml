@@ -1,4 +1,4 @@
-name: claude_code_cli_flutter
+name: coding_agent_dock
 description: "AI programming agent CLI detection & management on desktop"
 publish_to: 'none'
 version: 1.0.28+29
@@ -61,7 +61,7 @@ dev_dependencies:
 patrol:
   app_name: AgentDock
   macos:
-    bundle_id: com.yyqxy.plugins.claudeCodeCliFlutter
+    bundle_id: com.plugins.coding_agent_dock
 
 flutter:
   generate: true

@@ -1,7 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:claude_code_cli_flutter/database/database.dart';
+import 'package:coding_agent_dock/database/database.dart';
 import 'package:drift/drift.dart' show Value;
 
 AppDatabase _makeDb() => AppDatabase.forTesting(NativeDatabase.memory());

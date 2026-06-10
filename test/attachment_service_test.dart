@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:claude_code_cli_flutter/services/attachment_service.dart';
+import 'package:coding_agent_dock/services/attachment_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:claude_code_cli_flutter/utils/ansi_utils.dart';
+import 'package:coding_agent_dock/utils/ansi_utils.dart';
 
 void main() {
   group('AnsiUtils.stripAnsi', () {

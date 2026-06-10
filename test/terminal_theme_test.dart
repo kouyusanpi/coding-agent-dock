@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:claude_code_cli_flutter/theme/app_colors.dart';
-import 'package:claude_code_cli_flutter/theme/app_terminal_theme.dart';
+import 'package:coding_agent_dock/theme/app_colors.dart';
+import 'package:coding_agent_dock/theme/app_terminal_theme.dart';
 
 void main() {
   group('NoBoldTerminalStyle', () {

@@ -1050,6 +1050,12 @@ class _GroupHeader extends StatefulWidget {
     required this.onToggle,
   });
 
+  static bool _sharedMemoryExists(String? projectPath) {
+    if (projectPath == null) return false;
+    return File(p.join(projectPath, '.agentdock', 'shared-memory.md'))
+        .existsSync();
+  }
+
   @override
   State<_GroupHeader> createState() => _GroupHeaderState();
 }
@@ -1060,6 +1066,7 @@ class _GroupHeaderState extends State<_GroupHeader> {
   @override
   Widget build(BuildContext context) {
     final tooltip = widget.fullPath ?? widget.dirName;
+    final hasSharedMemory = _GroupHeader._sharedMemoryExists(widget.fullPath);
     return Tooltip(
       message: tooltip,
       waitDuration: const Duration(milliseconds: 600),
@@ -1087,6 +1094,21 @@ class _GroupHeaderState extends State<_GroupHeader> {
               const SizedBox(width: 6),
               const Icon(Icons.folder_outlined,
                   size: 12, color: AppColors.text500),
+              if (hasSharedMemory) ...[
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'Shared memory active',
+                  waitDuration: const Duration(milliseconds: 300),
+                  child: Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: AppColors.emerald500,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(width: 5),
               Expanded(
                 child: Text(

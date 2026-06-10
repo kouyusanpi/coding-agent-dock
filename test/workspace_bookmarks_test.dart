@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:claude_code_cli_flutter/services/settings_service.dart';
+import 'package:coding_agent_dock/services/settings_service.dart';
 
 void main() {
   setUp(() async {

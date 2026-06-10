@@ -97,13 +97,66 @@ class IpcSessionInfo {
 ///     Streams live PTY output as Server-Sent Events. Stays open until the
 ///     session ends or the client disconnects. Strip ANSI before using.
 ///
+///   GET /v1/kv
+///     Response: 200 {"keys": ["k1","k2",...]}
+///     List all live (non-expired) keys in the shared KV store.
+///
+///   GET /v1/kv/:key
+///     Response: 200 {"key":"k","value":"v","expiresAt":"ISO8601"|null}
+///              | 404 {"error":"key not found"}
+///     Read a single key. Expired entries are treated as missing.
+///
+///   POST /v1/kv/:key
+///     Body: {"value": "...", "ttl": SECONDS (optional)}
+///     Response: 200 {"ok":true}
+///     Write a key. Optional TTL (integer seconds) makes it auto-expire.
+///     Value is capped at 64 KB. Changes are flushed to disk when a
+///     persistence path is set (see [loadKv]).
+///
+///   DELETE /v1/kv/:key
+///     Response: 200 {"ok":true}
+///     Delete a key. Idempotent. Flushes to disk if persistence is enabled.
+///
 /// Example Claude Code hook (in ~/.claude/settings.json):
 ///   "Stop": [{"matcher":"","hooks":[{"type":"command","command":
 ///     "curl -sf -X POST $AGENTDOCK_IPC_URL -H 'Content-Type: application/json'
 ///      -d '{\"type\":\"stop\"}' || true"}]}]
+
+/// One entry in the IPC shared key-value store.
+class _KvEntry {
+  final String value;
+
+  /// Wall-clock time after which this entry is considered expired (null = no TTL).
+  final DateTime? expiresAt;
+
+  _KvEntry(this.value, {Duration? ttl})
+      : expiresAt = ttl == null ? null : DateTime.now().add(ttl);
+
+  /// Reconstruct an entry with an absolute expiry time (used when loading from disk).
+  _KvEntry.withExpiry(this.value, this.expiresAt);
+
+  bool get expired =>
+      expiresAt != null && DateTime.now().isAfter(expiresAt!);
+
+  Map<String, dynamic> toJson() => {
+        'value': value,
+        'expiresAt': expiresAt?.toIso8601String(),
+      };
+}
+
 class IpcServer {
   HttpServer? _server;
   final _controller = StreamController<IpcEvent>.broadcast();
+
+  /// In-process shared key-value store, accessible via the `/v1/kv` endpoints.
+  ///
+  /// Any agent session (or shell script via curl) can read/write named values.
+  /// Values persist for the app lifetime (or until a per-key TTL expires).
+  /// When [loadKv] is called with a path, changes are also flushed to disk.
+  final Map<String, _KvEntry> _kv = <String, _KvEntry>{};
+
+  /// Path where the KV store is persisted. Set by [loadKv].
+  String? _kvPersistPath;
 
   /// Called for `GET /v1/sessions`. Return the current list of open sessions.
   List<IpcSessionInfo> Function()? onGetSessions;
@@ -147,6 +200,48 @@ class IpcServer {
     await _server?.close(force: true);
     _server = null;
     await _controller.close();
+  }
+
+  /// Load the KV store from [path] (JSON file) and enable disk persistence.
+  ///
+  /// Call this once after [start]. Expired entries are silently dropped on
+  /// load. Subsequent writes/deletes flush the store back to the same path.
+  /// Errors are swallowed — the in-memory store still works if the file
+  /// can't be read or written.
+  Future<void> loadKv(String path) async {
+    _kvPersistPath = path;
+    try {
+      final file = File(path);
+      if (!file.existsSync()) return;
+      final raw = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      for (final e in raw.entries) {
+        final obj = e.value as Map<String, dynamic>?;
+        if (obj == null) continue;
+        final value = obj['value'] as String? ?? '';
+        final expiresAtStr = obj['expiresAt'] as String?;
+        final expiresAt =
+            expiresAtStr != null ? DateTime.tryParse(expiresAtStr) : null;
+        final entry = _KvEntry.withExpiry(value, expiresAt);
+        if (!entry.expired) _kv[e.key] = entry;
+      }
+    } catch (_) {}
+  }
+
+  void _saveKv() {
+    final path = _kvPersistPath;
+    if (path == null) return;
+    final live = _kvLive();
+    final encoded = jsonEncode(
+        live.map((k, v) => MapEntry(k, v.toJson())));
+    File(path).parent.create(recursive: true).then((_) {
+      File(path).writeAsString(encoded).catchError((_) => File(path));
+    }).catchError((_) {});
+  }
+
+  /// Evict all expired KV entries and return the live (key → entry) map.
+  Map<String, _KvEntry> _kvLive() {
+    _kv.removeWhere((_, e) => e.expired);
+    return _kv;
   }
 
   void _serve(HttpServer server) {
@@ -318,7 +413,77 @@ class IpcServer {
       }
     }
 
+    // ── KV store endpoints ────────────────────────────────────────────────
+    if (seg.length >= 2 && seg[1] == 'kv') {
+      await _handleKv(req, seg);
+      return;
+    }
+
     _notFound(req);
+  }
+
+  Future<void> _handleKv(HttpRequest req, List<String> seg) async {
+    // GET /v1/kv — list all live keys
+    if (req.method == 'GET' && seg.length == 2) {
+      final live = _kvLive();
+      _json(req, jsonEncode({'keys': live.keys.toList()}));
+      return;
+    }
+
+    if (seg.length < 3) {
+      req.response..statusCode = HttpStatus.badRequest..close();
+      return;
+    }
+    final key = Uri.decodeComponent(seg[2]);
+
+    // GET /v1/kv/:key
+    if (req.method == 'GET') {
+      final entry = _kvLive()[key];
+      if (entry == null) {
+        req.response
+          ..statusCode = HttpStatus.notFound
+          ..headers.contentType = ContentType.json
+          ..write('{"error":"key not found"}')
+          ..close();
+        return;
+      }
+      _json(req, jsonEncode({
+        'key': key,
+        'value': entry.value,
+        'expiresAt': entry.expiresAt?.toIso8601String(),
+      }));
+      return;
+    }
+
+    // POST /v1/kv/:key
+    if (req.method == 'POST') {
+      final raw = await req.fold<List<int>>(
+          [], (acc, chunk) => acc..addAll(chunk));
+      Map<String, dynamic> payload = {};
+      try {
+        payload = jsonDecode(utf8.decode(raw)) as Map<String, dynamic>;
+      } catch (_) {}
+      final rawVal = payload['value'] as String? ?? '';
+      final value = rawVal.substring(0, rawVal.length.clamp(0, 64 * 1024));
+      final ttlSecs = (payload['ttl'] as num?)?.toInt();
+      final ttl = ttlSecs != null && ttlSecs > 0
+          ? Duration(seconds: ttlSecs)
+          : null;
+      _kv[key] = _KvEntry(value, ttl: ttl);
+      _saveKv();
+      _json(req, '{"ok":true}');
+      return;
+    }
+
+    // DELETE /v1/kv/:key
+    if (req.method == 'DELETE') {
+      _kv.remove(key);
+      _saveKv();
+      _json(req, '{"ok":true}');
+      return;
+    }
+
+    req.response..statusCode = HttpStatus.methodNotAllowed..close();
   }
 
   void _json(HttpRequest req, String body) {

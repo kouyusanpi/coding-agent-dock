@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:claude_code_cli_flutter/models/cli_registry.dart';
+import 'package:coding_agent_dock/models/cli_registry.dart';
 
 void main() {
   group('CliRegistry', () {

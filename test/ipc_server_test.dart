@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:claude_code_cli_flutter/services/ipc_server.dart';
+import 'package:coding_agent_dock/services/ipc_server.dart';
 
 void main() {
   group('IpcServer', () {
@@ -311,6 +311,193 @@ void main() {
       expect(resp.statusCode, 404);
       await resp.drain<void>();
       client.close();
+    });
+
+    // ── KV store ─────────────────────────────────────────────────────────────
+
+    Future<Map<String, dynamic>> _kvGet(
+        HttpClient c, String base, String key) async {
+      final req = await c.getUrl(Uri.parse('$base/v1/kv/$key'));
+      final resp = await req.close();
+      final body = jsonDecode(await resp.transform(utf8.decoder).join())
+          as Map<String, dynamic>;
+      return {'status': resp.statusCode, ...body};
+    }
+
+    Future<int> _kvSet(HttpClient c, String base, String key, String value,
+        {int? ttl}) async {
+      final req = await c.postUrl(Uri.parse('$base/v1/kv/$key'));
+      req.headers.contentType = ContentType.json;
+      final payload = <String, dynamic>{'value': value};
+      if (ttl != null) payload['ttl'] = ttl;
+      req.write(jsonEncode(payload));
+      final resp = await req.close();
+      await resp.drain<void>();
+      return resp.statusCode;
+    }
+
+    Future<int> _kvDel(HttpClient c, String base, String key) async {
+      final req = await c.deleteUrl(Uri.parse('$base/v1/kv/$key'));
+      final resp = await req.close();
+      await resp.drain<void>();
+      return resp.statusCode;
+    }
+
+    Future<List<String>> _kvList(HttpClient c, String base) async {
+      final req = await c.getUrl(Uri.parse('$base/v1/kv'));
+      final resp = await req.close();
+      final body = jsonDecode(await resp.transform(utf8.decoder).join()) as Map;
+      return (body['keys'] as List).cast<String>();
+    }
+
+    test('GET /v1/kv returns empty list initially', () async {
+      await server.start();
+      final client = HttpClient();
+      final keys = await _kvList(client, server.baseUrl!);
+      expect(keys, isEmpty);
+      client.close();
+    });
+
+    test('POST /v1/kv/:key writes a value and GET reads it back', () async {
+      await server.start();
+      final client = HttpClient();
+      await _kvSet(client, server.baseUrl!, 'mykey', 'myval');
+      final got = await _kvGet(client, server.baseUrl!, 'mykey');
+      expect(got['status'], 200);
+      expect(got['key'], 'mykey');
+      expect(got['value'], 'myval');
+      client.close();
+    });
+
+    test('GET /v1/kv/:key returns 404 for missing key', () async {
+      await server.start();
+      final client = HttpClient();
+      final got = await _kvGet(client, server.baseUrl!, 'nosuchkey');
+      expect(got['status'], 404);
+      client.close();
+    });
+
+    test('DELETE /v1/kv/:key removes a key', () async {
+      await server.start();
+      final client = HttpClient();
+      await _kvSet(client, server.baseUrl!, 'toDelete', 'v');
+      await _kvDel(client, server.baseUrl!, 'toDelete');
+      final got = await _kvGet(client, server.baseUrl!, 'toDelete');
+      expect(got['status'], 404);
+      client.close();
+    });
+
+    test('DELETE /v1/kv/:key is idempotent', () async {
+      await server.start();
+      final client = HttpClient();
+      expect(await _kvDel(client, server.baseUrl!, 'nonexistent'), 200);
+      expect(await _kvDel(client, server.baseUrl!, 'nonexistent'), 200);
+      client.close();
+    });
+
+    test('GET /v1/kv lists all written keys', () async {
+      await server.start();
+      final client = HttpClient();
+      await _kvSet(client, server.baseUrl!, 'alpha', '1');
+      await _kvSet(client, server.baseUrl!, 'beta', '2');
+      await _kvSet(client, server.baseUrl!, 'gamma', '3');
+      final keys = await _kvList(client, server.baseUrl!);
+      expect(keys, containsAll(['alpha', 'beta', 'gamma']));
+      expect(keys, hasLength(3));
+      client.close();
+    });
+
+    test('GET /v1/kv does not list deleted keys', () async {
+      await server.start();
+      final client = HttpClient();
+      await _kvSet(client, server.baseUrl!, 'keep', '1');
+      await _kvSet(client, server.baseUrl!, 'gone', '2');
+      await _kvDel(client, server.baseUrl!, 'gone');
+      final keys = await _kvList(client, server.baseUrl!);
+      expect(keys, contains('keep'));
+      expect(keys, isNot(contains('gone')));
+      client.close();
+    });
+
+    test('POST /v1/kv/:key overwrites an existing value', () async {
+      await server.start();
+      final client = HttpClient();
+      await _kvSet(client, server.baseUrl!, 'x', 'first');
+      await _kvSet(client, server.baseUrl!, 'x', 'second');
+      final got = await _kvGet(client, server.baseUrl!, 'x');
+      expect(got['value'], 'second');
+      client.close();
+    });
+
+    test('POST /v1/kv/:key with ttl=1 expires after delay', () async {
+      await server.start();
+      final client = HttpClient();
+      await _kvSet(client, server.baseUrl!, 'ephemeral', 'hi', ttl: 1);
+      final before = await _kvGet(client, server.baseUrl!, 'ephemeral');
+      expect(before['status'], 200);
+      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      final after = await _kvGet(client, server.baseUrl!, 'ephemeral');
+      expect(after['status'], 404);
+      client.close();
+    }, timeout: const Timeout(Duration(seconds: 10)));
+
+    test('expired key does not appear in GET /v1/kv list', () async {
+      await server.start();
+      final client = HttpClient();
+      await _kvSet(client, server.baseUrl!, 'live', 'yes');
+      await _kvSet(client, server.baseUrl!, 'dead', 'no', ttl: 1);
+      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      final keys = await _kvList(client, server.baseUrl!);
+      expect(keys, contains('live'));
+      expect(keys, isNot(contains('dead')));
+      client.close();
+    }, timeout: const Timeout(Duration(seconds: 10)));
+
+    test('GET /v1/kv/:key response includes expiresAt when TTL set', () async {
+      await server.start();
+      final client = HttpClient();
+      await _kvSet(client, server.baseUrl!, 'timed', 'val', ttl: 3600);
+      final got = await _kvGet(client, server.baseUrl!, 'timed');
+      expect(got['status'], 200);
+      expect(got['expiresAt'], isNotNull);
+      final exp = DateTime.parse(got['expiresAt'] as String);
+      expect(exp.isAfter(DateTime.now()), isTrue);
+      client.close();
+    });
+
+    test('GET /v1/kv/:key has null expiresAt when no TTL', () async {
+      await server.start();
+      final client = HttpClient();
+      await _kvSet(client, server.baseUrl!, 'forever', 'val');
+      final got = await _kvGet(client, server.baseUrl!, 'forever');
+      expect(got['expiresAt'], isNull);
+      client.close();
+    });
+
+    test('loadKv restores persisted entries from a temp file', () async {
+      await server.start();
+      // Write a JSON file simulating a previous run's state.
+      final tmp = await File('${Directory.systemTemp.path}/ad_kv_test.json')
+          .writeAsString(jsonEncode({
+        'persistent_key': {'value': 'hello', 'expiresAt': null},
+        'expired_key': {
+          'value': 'gone',
+          'expiresAt': DateTime.now()
+              .subtract(const Duration(seconds: 10))
+              .toIso8601String(),
+        },
+      }));
+      await server.loadKv(tmp.path);
+      final client = HttpClient();
+      // Persistent key survives.
+      final got = await _kvGet(client, server.baseUrl!, 'persistent_key');
+      expect(got['status'], 200);
+      expect(got['value'], 'hello');
+      // Expired key is dropped on load.
+      final expired = await _kvGet(client, server.baseUrl!, 'expired_key');
+      expect(expired['status'], 404);
+      client.close();
+      await tmp.delete();
     });
   });
 }

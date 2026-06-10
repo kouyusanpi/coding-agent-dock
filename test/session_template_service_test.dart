@@ -1,5 +1,5 @@
-import 'package:claude_code_cli_flutter/models/session_template.dart';
-import 'package:claude_code_cli_flutter/services/session_template_service.dart';
+import 'package:coding_agent_dock/models/session_template.dart';
+import 'package:coding_agent_dock/services/session_template_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
