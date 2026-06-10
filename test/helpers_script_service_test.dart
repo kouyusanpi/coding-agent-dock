@@ -75,5 +75,20 @@ void main() {
           s.indexOf('agentdock_wait()'), s.indexOf('agentdock_output()'));
       expect(waitFn, contains('local elapsed=0 body sess_status'));
     });
+
+    test('script contains agentdock_spawn function', () {
+      expect(HelpersScriptService.script, contains('agentdock_spawn'));
+    });
+
+    test('agentdock_spawn posts to /v1/sessions endpoint', () {
+      expect(HelpersScriptService.script,
+          contains(r'${AGENTDOCK_API_BASE}/sessions'));
+    });
+
+    test('agentdock_spawn extracts sessionId from response', () {
+      final s = HelpersScriptService.script;
+      final spawnFn = s.substring(s.indexOf('agentdock_spawn()'));
+      expect(spawnFn, contains('_ad_json sessionId'));
+    });
   });
 }

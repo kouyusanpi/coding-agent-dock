@@ -37,6 +37,7 @@ class IpcSessionInfo {
   final String agentId;
   final String status;
   final String? workingDirectory;
+  final String? input;
 
   const IpcSessionInfo({
     required this.id,
@@ -44,6 +45,7 @@ class IpcSessionInfo {
     required this.agentId,
     required this.status,
     this.workingDirectory,
+    this.input,
   });
 
   Map<String, dynamic> toJson() => {
@@ -52,6 +54,7 @@ class IpcSessionInfo {
         'agent': agentId,
         'status': status,
         if (workingDirectory != null) 'workingDirectory': workingDirectory,
+        if (input != null) 'input': input,
       };
 }
 
@@ -70,11 +73,20 @@ class IpcSessionInfo {
 ///     Response: 200 {"ok": true}
 ///
 ///   GET /v1/sessions
-///     Response: 200 {"sessions": [{id, name, agent, status, workingDirectory?}]}
+///     Response: 200 {"sessions": [{id, name, agent, status, workingDirectory?, input?}]}
 ///     Use from hooks/sub-processes to discover other running agents.
 ///
+///   POST /v1/sessions
+///     Body: {"agent": "claude", "input": "...", "workingDirectory": "...", "name": "..."}
+///     Response: 200 {"sessionId": N}
+///              | 400 {"error": "agent and input are required"}
+///              | 404 {"error": "agent not found"}
+///     Spawn a new agent session programmatically. 'agent' must be a known CLI
+///     id (e.g. "claude", "codex"). 'name' and 'workingDirectory' are optional.
+///     Powers `agentdock_spawn`.
+///
 ///   GET /v1/sessions/:id
-///     Response: 200 {id, name, agent, status, workingDirectory?}
+///     Response: 200 {id, name, agent, status, workingDirectory?, input?}
 ///              | 404 {"error": "session not found"}
 ///     Single session's current status — poll this to wait for another agent
 ///     to finish (status leaves 'running'). Powers `agentdock_wait`.
@@ -160,6 +172,15 @@ class IpcServer {
 
   /// Called for `GET /v1/sessions`. Return the current list of open sessions.
   List<IpcSessionInfo> Function()? onGetSessions;
+
+  /// Called for `POST /v1/sessions`. Spawn a new session and return its DB id,
+  /// or null when the requested agent id is unknown / the host widget is gone.
+  Future<int?> Function({
+    required String agentId,
+    required String input,
+    String? name,
+    String? workingDirectory,
+  })? onCreateSession;
 
   /// Called for `POST /v1/sessions/:id/inject`. Return true if the session was
   /// found and the text was written; false → 404 is returned to the caller.
@@ -272,6 +293,44 @@ class IpcServer {
     if (req.method == 'GET' && seg.length == 2 && seg[1] == 'sessions') {
       final infos = onGetSessions?.call() ?? [];
       _json(req, jsonEncode({'sessions': infos.map((s) => s.toJson()).toList()}));
+      return;
+    }
+
+    // POST /v1/sessions — spawn a new agent session programmatically
+    if (req.method == 'POST' && seg.length == 2 && seg[1] == 'sessions') {
+      final rawBody = await req.fold<List<int>>(
+          [], (acc, chunk) => acc..addAll(chunk));
+      Map<String, dynamic> payload = {};
+      try {
+        payload = jsonDecode(utf8.decode(rawBody)) as Map<String, dynamic>;
+      } catch (_) {}
+      final agentId = payload['agent'] as String?;
+      final input = payload['input'] as String?;
+      if (agentId == null || agentId.isEmpty || input == null || input.isEmpty) {
+        req.response
+          ..statusCode = HttpStatus.badRequest
+          ..headers.contentType = ContentType.json
+          ..write('{"error":"agent and input are required"}')
+          ..close();
+        return;
+      }
+      final name = payload['name'] as String?;
+      final workingDirectory = payload['workingDirectory'] as String?;
+      final sessionId = await onCreateSession?.call(
+        agentId: agentId,
+        input: input,
+        name: name,
+        workingDirectory: workingDirectory,
+      );
+      if (sessionId == null) {
+        req.response
+          ..statusCode = HttpStatus.notFound
+          ..headers.contentType = ContentType.json
+          ..write('{"error":"agent not found"}')
+          ..close();
+        return;
+      }
+      _json(req, jsonEncode({'sessionId': sessionId}));
       return;
     }
 

@@ -36,6 +36,47 @@ class AnsiUtils {
         .trim();
   }
 
+  // Box-drawing / TUI chrome glyphs that carry no semantic meaning — borders,
+  // separators, block elements, spinner bars.
+  static final _boxDrawing = RegExp(
+    r'[│┃┆┇┊┋╎╏─━┄┅┈┉╌╍═┌┐└┘├┤┬┴┼╭╮╰╯╔╗╚╝╠╣╦╩╬▏▎▍▌▋▊▉█▕▔▁▂▃▄▅▆▇░▒▓◢◣◤◥]',
+  );
+
+  /// Clean raw PTY output into meaningful plain text for LLM context.
+  ///
+  /// Full-screen TUIs (Claude Code, CodeWhale, …) repaint the whole screen on
+  /// every frame, so the raw buffer is dominated by box-drawing borders and
+  /// dozens of duplicate frames. This:
+  ///   1. strips ANSI escape sequences,
+  ///   2. removes box-drawing / TUI chrome characters,
+  ///   3. collapses repaint duplicates (keeps each unique line at the position
+  ///      of its LAST occurrence — i.e. the most recent screen state),
+  ///   4. keeps the last [maxLines] non-empty lines.
+  ///
+  /// The result is the readable conversation/output the agent actually produced,
+  /// suitable for feeding to a supervising LLM.
+  static String cleanForContext(String raw, {int maxLines = 120}) {
+    final stripped = stripAnsi(raw);
+    final lines = <String>[];
+    for (final rawLine in stripped.split('\n')) {
+      var line = rawLine.replaceAll(_boxDrawing, ' ');
+      line = line.replaceAll(RegExp(r'[ \t]{2,}'), ' ').trim();
+      if (line.isEmpty) continue;
+      lines.add(line);
+    }
+    if (lines.isEmpty) return '';
+    // Collapse repeated frames: keep the LAST occurrence of each unique line,
+    // preserving the order those last occurrences appear in.
+    final lastIndex = <String, int>{};
+    for (var i = 0; i < lines.length; i++) {
+      lastIndex[lines[i]] = i;
+    }
+    final keptIndices = lastIndex.values.toList()..sort();
+    final deduped = [for (final i in keptIndices) lines[i]];
+    if (deduped.length <= maxLines) return deduped.join('\n');
+    return deduped.sublist(deduped.length - maxLines).join('\n');
+  }
+
   /// Return the last [maxChars] characters of [text], starting at a line
   /// boundary so the result never begins mid-line.
   ///

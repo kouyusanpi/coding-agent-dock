@@ -10,6 +10,7 @@ import '../database/database.dart';
 import '../l10n/app_localizations.dart';
 import '../models/agent_cli.dart';
 import '../services/export_service.dart';
+import '../services/process_monitor_service.dart';
 import '../services/terminal_sessions_controller.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
@@ -81,10 +82,9 @@ class _SessionStatsState extends State<_SessionStats> {
   @override
   void initState() {
     super.initState();
-    _sub = widget.sessionsStream.listen(
-      (list) { if (mounted) setState(() => _total = list.length); },
-      onError: (_) {},
-    );
+    _sub = widget.sessionsStream.listen((list) {
+      if (mounted) setState(() => _total = list.length);
+    }, onError: (_) {});
   }
 
   @override
@@ -146,6 +146,12 @@ class TaskPanel extends StatefulWidget {
   final AgentCli? Function(int sessionId)? chainTargetOf;
   final void Function(int sessionId, AgentCli? cli)? onChainTo;
 
+  /// Opens the Loop Tasks panel. When null, the loop-tasks button is hidden.
+  final VoidCallback? onOpenLoopTasks;
+
+  /// Opens the Autopilot panel. When null, the autopilot button is hidden.
+  final VoidCallback? onOpenAutopilot;
+
   const TaskPanel({
     super.key,
     required this.sessionsStream,
@@ -172,6 +178,8 @@ class TaskPanel extends StatefulWidget {
     required this.onTogglePin,
     this.chainTargetOf,
     this.onChainTo,
+    this.onOpenLoopTasks,
+    this.onOpenAutopilot,
   });
 
   /// Key for the inline task search field (used by widget tests).
@@ -185,12 +193,15 @@ class _TaskPanelState extends State<TaskPanel> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _listFocusNode = FocusNode();
   int _focusedIndex = -1;
+
   /// null = no filter (show all); non-null = show only sessions with that status.
   /// The value 'failed' matches both 'failed' and 'cancelled'.
   String? _statusFilter;
+
   /// Current secondary sort order (within pinned / unpinned groups).
   /// Values: 'newest' (default), 'oldest', 'name', 'duration'.
   String _sortOrder = 'newest';
+
   /// Whether to group sessions by working directory.
   bool _groupByDir = false;
 
@@ -233,45 +244,130 @@ class _TaskPanelState extends State<TaskPanel> {
     return AnimatedBuilder(
       animation: widget.terminals,
       builder: (context, _) {
-        final runningCount =
-            widget.terminals.openTerminals.where((t) => t.running).length;
+        final runningCount = widget.terminals.openTerminals
+            .where((t) => t.running)
+            .length;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // --- Section header with running badge + stats ---
             Padding(
               padding: const EdgeInsets.fromLTRB(
-                  12, 12, 12, AppSpacing.sectionGap),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Flexible(
-                    child: Text(
-                      l10n.tasksSection,
-                      style: AppTypography.sectionHeader,
-                      overflow: TextOverflow.ellipsis,
+                12,
+                12,
+                12,
+                AppSpacing.sectionGap,
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final headerActions = <Widget>[
+                    _SessionStats(
+                      sessionsStream: widget.sessionsStream,
+                      runningCount: runningCount,
+                      l10n: l10n,
                     ),
-                  ),
-                  _SessionStats(
-                    sessionsStream: widget.sessionsStream,
-                    runningCount: runningCount,
-                    l10n: l10n,
-                  ),
-                  if (runningCount >= 1) ...[
-                    const SizedBox(width: 2),
-                    _BroadcastButton(terminals: widget.terminals),
-                  ],
-                  const SizedBox(width: 4),
-                  _GroupByDirButton(
-                    active: _groupByDir,
-                    onToggle: () => setState(() => _groupByDir = !_groupByDir),
-                  ),
-                  const SizedBox(width: 2),
-                  _SortButton(
-                    sortOrder: _sortOrder,
-                    onChanged: (o) => setState(() => _sortOrder = o),
-                  ),
-                ],
+                    if (runningCount >= 1)
+                      _BroadcastButton(terminals: widget.terminals),
+                    if (widget.onOpenAutopilot != null)
+                      Tooltip(
+                        message: 'Autopilot',
+                        waitDuration: const Duration(milliseconds: 400),
+                        child: GestureDetector(
+                          onTap: widget.onOpenAutopilot,
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              child: const Icon(
+                                Icons.smart_toy_outlined,
+                                size: 14,
+                                color: AppColors.text400,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (widget.onOpenLoopTasks != null)
+                      Tooltip(
+                        message: 'Loop Tasks',
+                        waitDuration: const Duration(milliseconds: 400),
+                        child: GestureDetector(
+                          onTap: widget.onOpenLoopTasks,
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              child: const Icon(
+                                Icons.loop,
+                                size: 14,
+                                color: AppColors.text400,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    _GroupByDirButton(
+                      active: _groupByDir,
+                      onToggle: () =>
+                          setState(() => _groupByDir = !_groupByDir),
+                    ),
+                    _SortButton(
+                      sortOrder: _sortOrder,
+                      onChanged: (o) => setState(() => _sortOrder = o),
+                    ),
+                  ];
+                  final isCompact = constraints.maxWidth < 260;
+
+                  if (isCompact) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.tasksSection,
+                          style: AppTypography.sectionHeader,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Wrap(
+                            alignment: WrapAlignment.end,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 2,
+                            runSpacing: 4,
+                            children: headerActions,
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l10n.tasksSection,
+                          style: AppTypography.sectionHeader,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: Wrap(
+                            alignment: WrapAlignment.end,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 2,
+                            runSpacing: 4,
+                            children: headerActions,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
 
@@ -290,19 +386,24 @@ class _TaskPanelState extends State<TaskPanel> {
                   ),
                   decoration: InputDecoration(
                     isDense: true,
-                    contentPadding:
-                        const EdgeInsets.symmetric(vertical: 7),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 7),
                     hintText: l10n.searchTasks,
                     hintStyle: AppTypography.bodySmall,
-                    prefixIcon: const Icon(Icons.search,
-                        size: 14, color: AppColors.text500),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      size: 14,
+                      color: AppColors.text500,
+                    ),
                     prefixIconConstraints: const BoxConstraints(
-                        minWidth: 30, minHeight: 30),
+                      minWidth: 30,
+                      minHeight: 30,
+                    ),
                     filled: true,
                     fillColor: AppColors.bg800,
                     border: OutlineInputBorder(
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.inputRadius),
+                      borderRadius: BorderRadius.circular(
+                        AppSpacing.inputRadius,
+                      ),
                       borderSide: BorderSide.none,
                     ),
                   ),
@@ -318,46 +419,63 @@ class _TaskPanelState extends State<TaskPanel> {
                 builder: (context, snapshot) {
                   final all = snapshot.data ?? [];
                   final runCnt = all.where((s) => s.status == 'running').length;
-                  final doneCnt = all.where((s) => s.status == 'completed').length;
-                  final failCnt = all.where((s) =>
-                      s.status == 'failed' || s.status == 'cancelled').length;
+                  final doneCnt = all
+                      .where((s) => s.status == 'completed')
+                      .length;
+                  final failCnt = all
+                      .where(
+                        (s) => s.status == 'failed' || s.status == 'cancelled',
+                      )
+                      .length;
                   return SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
-                    child: Row(children: [
-                      _StatusChip(
-                        label: l10n.allAgents,
-                        count: all.length,
-                        isSelected: _statusFilter == null,
-                        onTap: () => setState(() => _statusFilter = null),
-                      ),
-                      const SizedBox(width: 4),
-                      _StatusChip(
-                        label: l10n.statusRunning,
-                        count: runCnt,
-                        isSelected: _statusFilter == 'running',
-                        activeColor: AppColors.emerald500,
-                        onTap: () => setState(() => _statusFilter =
-                            _statusFilter == 'running' ? null : 'running'),
-                      ),
-                      const SizedBox(width: 4),
-                      _StatusChip(
-                        label: l10n.statusCompleted,
-                        count: doneCnt,
-                        isSelected: _statusFilter == 'completed',
-                        onTap: () => setState(() => _statusFilter =
-                            _statusFilter == 'completed' ? null : 'completed'),
-                      ),
-                      if (failCnt > 0) ...[const SizedBox(width: 4),
+                    child: Row(
+                      children: [
                         _StatusChip(
-                          label: l10n.statusFailed,
-                          count: failCnt,
-                          isSelected: _statusFilter == 'failed',
-                          activeColor: AppColors.red400,
-                          onTap: () => setState(() => _statusFilter =
-                              _statusFilter == 'failed' ? null : 'failed'),
+                          label: l10n.allAgents,
+                          count: all.length,
+                          isSelected: _statusFilter == null,
+                          onTap: () => setState(() => _statusFilter = null),
                         ),
+                        const SizedBox(width: 4),
+                        _StatusChip(
+                          label: l10n.statusRunning,
+                          count: runCnt,
+                          isSelected: _statusFilter == 'running',
+                          activeColor: AppColors.emerald500,
+                          onTap: () => setState(
+                            () => _statusFilter = _statusFilter == 'running'
+                                ? null
+                                : 'running',
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        _StatusChip(
+                          label: l10n.statusCompleted,
+                          count: doneCnt,
+                          isSelected: _statusFilter == 'completed',
+                          onTap: () => setState(
+                            () => _statusFilter = _statusFilter == 'completed'
+                                ? null
+                                : 'completed',
+                          ),
+                        ),
+                        if (failCnt > 0) ...[
+                          const SizedBox(width: 4),
+                          _StatusChip(
+                            label: l10n.statusFailed,
+                            count: failCnt,
+                            isSelected: _statusFilter == 'failed',
+                            activeColor: AppColors.red400,
+                            onTap: () => setState(
+                              () => _statusFilter = _statusFilter == 'failed'
+                                  ? null
+                                  : 'failed',
+                            ),
+                          ),
+                        ],
                       ],
-                    ]),
+                    ),
                   );
                 },
               ),
@@ -381,19 +499,24 @@ class _TaskPanelState extends State<TaskPanel> {
               child: StreamBuilder<List<TaskSession>>(
                 stream: widget.sessionsStream,
                 builder: (context, snapshot) {
-                  final sessions =
-                      (snapshot.data ?? []).where(_matches).toList();
+                  final sessions = (snapshot.data ?? [])
+                      .where(_matches)
+                      .toList();
                   if (sessions.isEmpty) {
                     return Center(
-                      child: Text(l10n.noSessionsYet,
-                          style: AppTypography.bodySmall),
+                      child: Text(
+                        l10n.noSessionsYet,
+                        style: AppTypography.bodySmall,
+                      ),
                     );
                   }
                   final allSessions = snapshot.data ?? [];
-                  final hasFinished = allSessions.any((s) =>
-                      s.status == 'completed' ||
-                      s.status == 'failed' ||
-                      s.status == 'cancelled');
+                  final hasFinished = allSessions.any(
+                    (s) =>
+                        s.status == 'completed' ||
+                        s.status == 'failed' ||
+                        s.status == 'cancelled',
+                  );
                   return KeyboardListener(
                     focusNode: _listFocusNode,
                     onKeyEvent: (event) {
@@ -401,12 +524,20 @@ class _TaskPanelState extends State<TaskPanel> {
                       if (sessions.isEmpty) return;
                       final len = sessions.length;
                       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                        setState(() => _focusedIndex =
-                            (_focusedIndex + 1).clamp(0, len - 1));
+                        setState(
+                          () => _focusedIndex = (_focusedIndex + 1).clamp(
+                            0,
+                            len - 1,
+                          ),
+                        );
                       } else if (event.logicalKey ==
                           LogicalKeyboardKey.arrowUp) {
-                        setState(() => _focusedIndex =
-                            (_focusedIndex - 1).clamp(0, len - 1));
+                        setState(
+                          () => _focusedIndex = (_focusedIndex - 1).clamp(
+                            0,
+                            len - 1,
+                          ),
+                        );
                       } else if (event.logicalKey == LogicalKeyboardKey.enter &&
                           _focusedIndex >= 0 &&
                           _focusedIndex < len) {
@@ -420,30 +551,30 @@ class _TaskPanelState extends State<TaskPanel> {
                       }
                     },
                     child: _TaskListBody(
-                    sessions: sessions,
-                    focusedIndex: _focusedIndex,
-                    allHasFinished: hasFinished,
-                    terminals: widget.terminals,
-                    agents: widget.agents,
-                    agentNameOf: widget.agentNameOf,
-                    onOpen: widget.onOpen,
-                    onDelete: widget.onDelete,
-                    onRename: widget.onRename,
-                    onDispatchTo: widget.onDispatchTo,
-                    onDispatchToAll: widget.onDispatchToAll,
-                    onClone: widget.onClone,
-                    onUpdateNotes: widget.onUpdateNotes,
-                    onUpdateColorLabel: widget.onUpdateColorLabel,
-                    onContinueHere: widget.onContinueHere,
-                    onInjectMessage: widget.onInjectMessage,
-                    onNewTask: widget.onNewTask,
-                    onClearFinished: widget.onClearFinished,
-                    pinnedIds: widget.pinnedIds,
-                    onTogglePin: widget.onTogglePin,
-                    sortOrder: _sortOrder,
-                    groupByDir: _groupByDir,
-                    chainTargetOf: widget.chainTargetOf,
-                    onChainTo: widget.onChainTo,
+                      sessions: sessions,
+                      focusedIndex: _focusedIndex,
+                      allHasFinished: hasFinished,
+                      terminals: widget.terminals,
+                      agents: widget.agents,
+                      agentNameOf: widget.agentNameOf,
+                      onOpen: widget.onOpen,
+                      onDelete: widget.onDelete,
+                      onRename: widget.onRename,
+                      onDispatchTo: widget.onDispatchTo,
+                      onDispatchToAll: widget.onDispatchToAll,
+                      onClone: widget.onClone,
+                      onUpdateNotes: widget.onUpdateNotes,
+                      onUpdateColorLabel: widget.onUpdateColorLabel,
+                      onContinueHere: widget.onContinueHere,
+                      onInjectMessage: widget.onInjectMessage,
+                      onNewTask: widget.onNewTask,
+                      onClearFinished: widget.onClearFinished,
+                      pinnedIds: widget.pinnedIds,
+                      onTogglePin: widget.onTogglePin,
+                      sortOrder: _sortOrder,
+                      groupByDir: _groupByDir,
+                      chainTargetOf: widget.chainTargetOf,
+                      onChainTo: widget.onChainTo,
                     ),
                   );
                 },
@@ -518,131 +649,149 @@ class _TaskListBody extends StatelessWidget {
         Expanded(
           child: sessions.isEmpty
               ? Center(
-                  child: Text(l10n.noSessionsYet,
-                      style: AppTypography.bodySmall))
-              : Builder(builder: (context) {
-                  // Cluster map: batchId → sessions that share it.
-                  final clusterGroups = <String, List<TaskSession>>{};
-                  for (final s in sessions) {
-                    if (s.batchId != null) {
-                      clusterGroups.putIfAbsent(s.batchId!, () => []).add(s);
+                  child: Text(
+                    l10n.noSessionsYet,
+                    style: AppTypography.bodySmall,
+                  ),
+                )
+              : Builder(
+                  builder: (context) {
+                    // Cluster map: batchId → sessions that share it.
+                    final clusterGroups = <String, List<TaskSession>>{};
+                    for (final s in sessions) {
+                      if (s.batchId != null) {
+                        clusterGroups.putIfAbsent(s.batchId!, () => []).add(s);
+                      }
                     }
-                  }
-                  int clusterSizeOf(TaskSession s) =>
-                      s.batchId != null
-                          ? (clusterGroups[s.batchId!]?.length ?? 1)
-                          : 1;
-                  VoidCallback? onViewClusterOf(
-                      BuildContext ctx, TaskSession s) {
-                    final siblings = s.batchId != null
-                        ? clusterGroups[s.batchId!]
-                        : null;
-                    if (siblings == null || siblings.length < 2) return null;
-                    return () => ClusterComparisonDialog.show(
-                          ctx,
-                          sessions: siblings,
-                          agentNameOf: agentNameOf,
-                          onOpen: onOpen,
-                          terminals: terminals,
+                    int clusterSizeOf(TaskSession s) => s.batchId != null
+                        ? (clusterGroups[s.batchId!]?.length ?? 1)
+                        : 1;
+                    VoidCallback? onViewClusterOf(
+                      BuildContext ctx,
+                      TaskSession s,
+                    ) {
+                      final siblings = s.batchId != null
+                          ? clusterGroups[s.batchId!]
+                          : null;
+                      if (siblings == null || siblings.length < 2) return null;
+                      return () => ClusterComparisonDialog.show(
+                        ctx,
+                        sessions: siblings,
+                        agentNameOf: agentNameOf,
+                        onOpen: onOpen,
+                        terminals: terminals,
+                      );
+                    }
+
+                    // Apply chosen secondary sort, then float pinned to top.
+                    final displayed = [...sessions];
+                    switch (sortOrder) {
+                      case 'oldest':
+                        displayed.sort(
+                          (a, b) => a.createdAt.compareTo(b.createdAt),
                         );
-                  }
+                      case 'name':
+                        displayed.sort(
+                          (a, b) => a.name.toLowerCase().compareTo(
+                            b.name.toLowerCase(),
+                          ),
+                        );
+                      case 'duration':
+                        displayed.sort(
+                          (a, b) =>
+                              (b.durationMs ?? 0).compareTo(a.durationMs ?? 0),
+                        );
+                      default: // 'newest' — DB already ordered by createdAt DESC
+                        break;
+                    }
+                    // Float pinned sessions to the top (stable within sort group).
+                    displayed.sort((a, b) {
+                      final ap = pinnedIds.contains(a.id);
+                      final bp = pinnedIds.contains(b.id);
+                      if (ap == bp) return 0;
+                      return ap ? -1 : 1;
+                    });
 
-                  // Apply chosen secondary sort, then float pinned to top.
-                  final displayed = [...sessions];
-                  switch (sortOrder) {
-                    case 'oldest':
-                      displayed.sort((a, b) =>
-                          a.createdAt.compareTo(b.createdAt));
-                    case 'name':
-                      displayed.sort((a, b) =>
-                          a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-                    case 'duration':
-                      displayed.sort((a, b) =>
-                          (b.durationMs ?? 0).compareTo(a.durationMs ?? 0));
-                    default: // 'newest' — DB already ordered by createdAt DESC
-                      break;
-                  }
-                  // Float pinned sessions to the top (stable within sort group).
-                  displayed.sort((a, b) {
-                    final ap = pinnedIds.contains(a.id);
-                    final bp = pinnedIds.contains(b.id);
-                    if (ap == bp) return 0;
-                    return ap ? -1 : 1;
-                  });
+                    if (groupByDir) {
+                      return _GroupedListView(
+                        sessions: displayed,
+                        terminals: terminals,
+                        agents: agents,
+                        agentNameOf: agentNameOf,
+                        focusedIndex: focusedIndex,
+                        pinnedIds: pinnedIds,
+                        onOpen: onOpen,
+                        onDelete: onDelete,
+                        onRename: onRename,
+                        onDispatchTo: onDispatchTo,
+                        onDispatchToAll: onDispatchToAll,
+                        onClone: onClone,
+                        onUpdateNotes: onUpdateNotes,
+                        onUpdateColorLabel: onUpdateColorLabel,
+                        onContinueHere: onContinueHere,
+                        onInjectMessage: onInjectMessage,
+                        onTogglePin: onTogglePin,
+                        clusterSizeOf: clusterSizeOf,
+                        clusterGroups: clusterGroups,
+                        chainTargetOf: chainTargetOf,
+                        onChainTo: onChainTo,
+                      );
+                    }
 
-                  if (groupByDir) {
-                    return _GroupedListView(
-                      sessions: displayed,
-                      terminals: terminals,
-                      agents: agents,
-                      agentNameOf: agentNameOf,
-                      focusedIndex: focusedIndex,
-                      pinnedIds: pinnedIds,
-                      onOpen: onOpen,
-                      onDelete: onDelete,
-                      onRename: onRename,
-                      onDispatchTo: onDispatchTo,
-                      onDispatchToAll: onDispatchToAll,
-                      onClone: onClone,
-                      onUpdateNotes: onUpdateNotes,
-                      onUpdateColorLabel: onUpdateColorLabel,
-                      onContinueHere: onContinueHere,
-                      onInjectMessage: onInjectMessage,
-                      onTogglePin: onTogglePin,
-                      clusterSizeOf: clusterSizeOf,
-                      clusterGroups: clusterGroups,
-                      chainTargetOf: chainTargetOf,
-                      onChainTo: onChainTo,
-                    );
-                  }
-
-                  final displayedIdSet = {for (final s in displayed) s.id};
-                  return ListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 8),
-                  itemCount: displayed.length,
-                  itemBuilder: (context, index) {
-                    final s = displayed[index];
-                    return _TaskItem(
-                      session: s,
-                      agentName: agentNameOf(s.agentCliId),
-                      status: terminals.statusOf(s.id) ?? s.status,
-                      isActive: terminals.activeId == s.id,
-                      isOpen: terminals.isOpen(s.id),
-                      isKeyboardFocused: index == focusedIndex,
-                      hasUnread: terminals.hasUnread(s.id),
-                      agents: agents,
-                      isPinned: pinnedIds.contains(s.id),
-                      colorLabel: s.colorLabel,
-                      clusterSize: clusterSizeOf(s),
-                      onViewCluster: onViewClusterOf(context, s),
-                      onTap: () => onOpen(s),
-                      onDelete: () => onDelete(s),
-                      onRename: (name) => onRename(s, name),
-                      onDispatchTo: (cli) => onDispatchTo(s, cli),
-                      onDispatchToAll: () => onDispatchToAll(s),
-                      onClone: () => onClone(s),
-                      onUpdateNotes: (notes) => onUpdateNotes(s.id, notes),
-                      onUpdateColorLabel: (label) => onUpdateColorLabel(s.id, label),
-                      onTogglePin: () => onTogglePin(s.id),
-                      onContinueHere: onContinueHere != null &&
-                              s.workingDirectory != null &&
-                              s.workingDirectory!.isNotEmpty
-                          ? () => onContinueHere!(s)
-                          : null,
-                      onInjectMessage: onInjectMessage != null
-                          ? () => onInjectMessage!(s)
-                          : null,
-                      chainTarget: chainTargetOf?.call(s.id),
-                      onChainTo: onChainTo != null
-                          ? (cli) => onChainTo!(s.id, cli)
-                          : null,
-                      isChainChild: s.parentSessionId != null &&
-                          displayedIdSet.contains(s.parentSessionId),
+                    final displayedIdSet = {for (final s in displayed) s.id};
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                      itemCount: displayed.length,
+                      itemBuilder: (context, index) {
+                        final s = displayed[index];
+                        return _TaskItem(
+                          session: s,
+                          agentName: agentNameOf(s.agentCliId),
+                          status: terminals.statusOf(s.id) ?? s.status,
+                          isActive: terminals.activeId == s.id,
+                          isOpen: terminals.isOpen(s.id),
+                          isKeyboardFocused: index == focusedIndex,
+                          hasUnread: terminals.hasUnread(s.id),
+                          agents: agents,
+                          isPinned: pinnedIds.contains(s.id),
+                          colorLabel: s.colorLabel,
+                          clusterSize: clusterSizeOf(s),
+                          processStats: terminals.statsOf(s.id),
+                          onViewCluster: onViewClusterOf(context, s),
+                          onTap: () => onOpen(s),
+                          onDelete: () => onDelete(s),
+                          onRename: (name) => onRename(s, name),
+                          onDispatchTo: (cli) => onDispatchTo(s, cli),
+                          onDispatchToAll: () => onDispatchToAll(s),
+                          onClone: () => onClone(s),
+                          onUpdateNotes: (notes) => onUpdateNotes(s.id, notes),
+                          onUpdateColorLabel: (label) =>
+                              onUpdateColorLabel(s.id, label),
+                          onTogglePin: () => onTogglePin(s.id),
+                          onContinueHere:
+                              onContinueHere != null &&
+                                  s.workingDirectory != null &&
+                                  s.workingDirectory!.isNotEmpty
+                              ? () => onContinueHere!(s)
+                              : null,
+                          onInjectMessage: onInjectMessage != null
+                              ? () => onInjectMessage!(s)
+                              : null,
+                          chainTarget: chainTargetOf?.call(s.id),
+                          onChainTo: onChainTo != null
+                              ? (cli) => onChainTo!(s.id, cli)
+                              : null,
+                          isChainChild:
+                              s.parentSessionId != null &&
+                              displayedIdSet.contains(s.parentSessionId),
+                        );
+                      },
                     );
                   },
-                );
-                },),
+                ),
         ),
 
         // --- Footer: New task + optional Clear ---
@@ -661,50 +810,64 @@ class _TaskListBody extends StatelessWidget {
                     backgroundColor: AppColors.accent5,
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.inputRadius),
+                      borderRadius: BorderRadius.circular(
+                        AppSpacing.inputRadius,
+                      ),
                     ),
                   ),
                 ),
               ),
               // Retry all failed — shown when ≥1 open terminal has failed.
-              Builder(builder: (ctx) {
-                final failedOpen = terminals.openTerminals
-                    .where((t) => t.effectiveStatus == 'failed')
-                    .toList();
-                if (failedOpen.isEmpty) return const SizedBox.shrink();
-                return Row(mainAxisSize: MainAxisSize.min, children: [
-                  const SizedBox(width: 8),
-                  Tooltip(
-                    message: AppLocalizations.of(ctx)!.retryAllFailed,
-                    child: OutlinedButton(
-                      onPressed: () {
-                        for (final t in List.of(failedOpen)) {
-                          unawaited(terminals.relaunch(t.sessionId));
-                        }
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.accent400,
-                        side: const BorderSide(
-                            color: AppColors.accent400),
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 10, horizontal: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                              AppSpacing.inputRadius),
+              Builder(
+                builder: (ctx) {
+                  final failedOpen = terminals.openTerminals
+                      .where((t) => t.effectiveStatus == 'failed')
+                      .toList();
+                  if (failedOpen.isEmpty) return const SizedBox.shrink();
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(width: 8),
+                      Tooltip(
+                        message: AppLocalizations.of(ctx)!.retryAllFailed,
+                        child: OutlinedButton(
+                          onPressed: () {
+                            for (final t in List.of(failedOpen)) {
+                              unawaited(terminals.relaunch(t.sessionId));
+                            }
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.accent400,
+                            side: const BorderSide(color: AppColors.accent400),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 10,
+                              horizontal: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.inputRadius,
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.replay, size: 14),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${failedOpen.length}',
+                                style: AppTypography.monoSmall.copyWith(
+                                  color: AppColors.accent400,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        const Icon(Icons.replay, size: 14),
-                        const SizedBox(width: 4),
-                        Text('${failedOpen.length}',
-                            style: AppTypography.monoSmall.copyWith(
-                                color: AppColors.accent400)),
-                      ]),
-                    ),
-                  ),
-                ]);
-              }),
+                    ],
+                  );
+                },
+              ),
               if (allHasFinished && onClearFinished != null) ...[
                 const SizedBox(width: 8),
                 Tooltip(
@@ -716,14 +879,16 @@ class _TaskListBody extends StatelessWidget {
                       foregroundColor: AppColors.text500,
                       side: const BorderSide(color: AppColors.border700),
                       padding: const EdgeInsets.symmetric(
-                          vertical: 10, horizontal: 12),
+                        vertical: 10,
+                        horizontal: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(
-                            AppSpacing.inputRadius),
+                          AppSpacing.inputRadius,
+                        ),
                       ),
                     ),
-                    child: const Icon(Icons.delete_sweep_outlined,
-                        size: 16),
+                    child: const Icon(Icons.delete_sweep_outlined, size: 16),
                   ),
                 ),
               ],
@@ -766,15 +931,13 @@ class _GroupByDirButtonState extends State<_GroupByDirButton> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             child: Icon(
-              widget.active
-                  ? Icons.folder_copy_rounded
-                  : Icons.folder_outlined,
+              widget.active ? Icons.folder_copy_rounded : Icons.folder_outlined,
               size: 14,
               color: widget.active
                   ? AppColors.accent400
                   : _hovered
-                      ? AppColors.text200
-                      : AppColors.text500,
+                  ? AppColors.text200
+                  : AppColors.text500,
             ),
           ),
         ),
@@ -847,15 +1010,16 @@ class _GroupedListViewState extends State<_GroupedListView> {
   List<MapEntry<String, List<TaskSession>>> _buildGroups() {
     final map = <String, List<TaskSession>>{};
     for (final s in widget.sessions) {
-      final key =
-          (s.workingDirectory != null && s.workingDirectory!.isNotEmpty)
-              ? s.workingDirectory!
-              : '';
+      final key = (s.workingDirectory != null && s.workingDirectory!.isNotEmpty)
+          ? s.workingDirectory!
+          : '';
       (map[key] ??= []).add(s);
     }
     final named = map.keys.where((k) => k.isNotEmpty).toList()
-      ..sort((a, b) => p.basename(a).toLowerCase()
-          .compareTo(p.basename(b).toLowerCase()));
+      ..sort(
+        (a, b) =>
+            p.basename(a).toLowerCase().compareTo(p.basename(b).toLowerCase()),
+      );
     final ordered = [...named, if (map.containsKey('')) ''];
     return ordered.map((k) => MapEntry(k, map[k]!)).toList();
   }
@@ -871,11 +1035,13 @@ class _GroupedListViewState extends State<_GroupedListView> {
       final key = entry.key;
       final groupSessions = entry.value;
       final collapsed = _collapsed.contains(key);
-      items.add(_GroupListEntry.header(
-        key: key,
-        count: groupSessions.length,
-        collapsed: collapsed,
-      ));
+      items.add(
+        _GroupListEntry.header(
+          key: key,
+          count: groupSessions.length,
+          collapsed: collapsed,
+        ),
+      );
       if (!collapsed) {
         for (final s in groupSessions) {
           items.add(_GroupListEntry.session(s));
@@ -919,9 +1085,11 @@ class _GroupedListViewState extends State<_GroupedListView> {
           isPinned: widget.pinnedIds.contains(s.id),
           colorLabel: s.colorLabel,
           clusterSize: widget.clusterSizeOf(s),
+          processStats: widget.terminals.statsOf(s.id),
           onViewCluster: () {
-            final siblings =
-                s.batchId != null ? widget.clusterGroups[s.batchId!] : null;
+            final siblings = s.batchId != null
+                ? widget.clusterGroups[s.batchId!]
+                : null;
             if (siblings == null || siblings.length < 2) return;
             ClusterComparisonDialog.show(
               context,
@@ -938,10 +1106,10 @@ class _GroupedListViewState extends State<_GroupedListView> {
           onDispatchToAll: () => widget.onDispatchToAll(s),
           onClone: () => widget.onClone(s),
           onUpdateNotes: (notes) => widget.onUpdateNotes(s.id, notes),
-          onUpdateColorLabel: (label) =>
-              widget.onUpdateColorLabel(s.id, label),
+          onUpdateColorLabel: (label) => widget.onUpdateColorLabel(s.id, label),
           onTogglePin: () => widget.onTogglePin(s.id),
-          onContinueHere: widget.onContinueHere != null &&
+          onContinueHere:
+              widget.onContinueHere != null &&
                   s.workingDirectory != null &&
                   s.workingDirectory!.isNotEmpty
               ? () => widget.onContinueHere!(s)
@@ -953,7 +1121,8 @@ class _GroupedListViewState extends State<_GroupedListView> {
           onChainTo: widget.onChainTo != null
               ? (cli) => widget.onChainTo!(s.id, cli)
               : null,
-          isChainChild: s.parentSessionId != null &&
+          isChainChild:
+              s.parentSessionId != null &&
               widget.sessions.any((p) => p.id == s.parentSessionId),
         );
       },
@@ -973,16 +1142,16 @@ class _GroupListEntry {
     required String key,
     required this.count,
     required this.collapsed,
-  })  : isHeader = true,
-        groupKey = key,
-        session = null;
+  }) : isHeader = true,
+       groupKey = key,
+       session = null;
 
   const _GroupListEntry.session(TaskSession s)
-      : isHeader = false,
-        groupKey = null,
-        count = 0,
-        collapsed = false,
-        session = s;
+    : isHeader = false,
+      groupKey = null,
+      count = 0,
+      collapsed = false,
+      session = s;
 }
 
 /// Collapsible group header showing the directory name and session count.
@@ -1004,7 +1173,11 @@ class _BroadcastButton extends StatelessWidget {
         onTap: () => BroadcastDialog.show(context, terminals),
         child: const Padding(
           padding: EdgeInsets.all(3),
-          child: Icon(Icons.hub_outlined, size: 13, color: AppColors.emerald500),
+          child: Icon(
+            Icons.hub_outlined,
+            size: 13,
+            color: AppColors.emerald500,
+          ),
         ),
       ),
     );
@@ -1027,8 +1200,11 @@ class _SharedMemoryButton extends StatelessWidget {
         onTap: () => SharedMemoryDialog.show(context, projectPath),
         child: const Padding(
           padding: EdgeInsets.all(3),
-          child: Icon(Icons.psychology_outlined,
-              size: 13, color: AppColors.text500),
+          child: Icon(
+            Icons.psychology_outlined,
+            size: 13,
+            color: AppColors.text500,
+          ),
         ),
       ),
     );
@@ -1052,8 +1228,9 @@ class _GroupHeader extends StatefulWidget {
 
   static bool _sharedMemoryExists(String? projectPath) {
     if (projectPath == null) return false;
-    return File(p.join(projectPath, '.agentdock', 'shared-memory.md'))
-        .existsSync();
+    return File(
+      p.join(projectPath, '.agentdock', 'shared-memory.md'),
+    ).existsSync();
   }
 
   @override
@@ -1077,66 +1254,77 @@ class _GroupHeaderState extends State<_GroupHeader> {
         child: GestureDetector(
           onTap: widget.onToggle,
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
             margin: const EdgeInsets.only(bottom: 2, top: 4),
             decoration: BoxDecoration(
               color: _hovered ? AppColors.bg800 : Colors.transparent,
               borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
             ),
-            child: Row(children: [
-              AnimatedRotation(
-                turns: widget.collapsed ? -0.25 : 0,
-                duration: AppSpacing.fastTransition,
-                child: const Icon(Icons.expand_more,
-                    size: 14, color: AppColors.text500),
-              ),
-              const SizedBox(width: 6),
-              const Icon(Icons.folder_outlined,
-                  size: 12, color: AppColors.text500),
-              if (hasSharedMemory) ...[
-                const SizedBox(width: 4),
-                Tooltip(
-                  message: 'Shared memory active',
-                  waitDuration: const Duration(milliseconds: 300),
-                  child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: AppColors.emerald500,
-                      shape: BoxShape.circle,
+            child: Row(
+              children: [
+                AnimatedRotation(
+                  turns: widget.collapsed ? -0.25 : 0,
+                  duration: AppSpacing.fastTransition,
+                  child: const Icon(
+                    Icons.expand_more,
+                    size: 14,
+                    color: AppColors.text500,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Icon(
+                  Icons.folder_outlined,
+                  size: 12,
+                  color: AppColors.text500,
+                ),
+                if (hasSharedMemory) ...[
+                  const SizedBox(width: 4),
+                  Tooltip(
+                    message: 'Shared memory active',
+                    waitDuration: const Duration(milliseconds: 300),
+                    child: Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppColors.emerald500,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    widget.dirName,
+                    style: AppTypography.meta.copyWith(
+                      color: AppColors.text400,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (widget.fullPath != null && _hovered) ...[
+                  _SharedMemoryButton(projectPath: widget.fullPath!),
+                  const SizedBox(width: 4),
+                ],
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.bg900,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${widget.count}',
+                    style: AppTypography.meta.copyWith(
+                      color: AppColors.text500,
                     ),
                   ),
                 ),
               ],
-              const SizedBox(width: 5),
-              Expanded(
-                child: Text(
-                  widget.dirName,
-                  style: AppTypography.meta.copyWith(
-                    color: AppColors.text400,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (widget.fullPath != null && _hovered) ...[
-                _SharedMemoryButton(projectPath: widget.fullPath!),
-                const SizedBox(width: 4),
-              ],
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: AppColors.bg900,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '${widget.count}',
-                  style: AppTypography.meta.copyWith(color: AppColors.text500),
-                ),
-              ),
-            ]),
+            ),
           ),
         ),
       ),
@@ -1258,12 +1446,9 @@ class _AgentFilterDropdown extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
               color: _isFiltered ? AppColors.accent10 : AppColors.bg800,
-              borderRadius:
-                  BorderRadius.circular(AppSpacing.inputRadius),
+              borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
               border: Border.all(
-                color: _isFiltered
-                    ? AppColors.accent400
-                    : AppColors.border700,
+                color: _isFiltered ? AppColors.accent400 : AppColors.border700,
               ),
             ),
             child: Row(
@@ -1271,9 +1456,7 @@ class _AgentFilterDropdown extends StatelessWidget {
                 Icon(
                   Icons.filter_list,
                   size: 13,
-                  color: _isFiltered
-                      ? AppColors.accent400
-                      : AppColors.text400,
+                  color: _isFiltered ? AppColors.accent400 : AppColors.text400,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -1293,9 +1476,7 @@ class _AgentFilterDropdown extends StatelessWidget {
                 Icon(
                   Icons.arrow_drop_down,
                   size: 16,
-                  color: _isFiltered
-                      ? AppColors.accent400
-                      : AppColors.text400,
+                  color: _isFiltered ? AppColors.accent400 : AppColors.text400,
                 ),
               ],
             ),
@@ -1334,15 +1515,12 @@ class _CheckRow extends StatelessWidget {
                 color: checked ? AppColors.accent400 : Colors.transparent,
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(
-                  color: checked
-                      ? AppColors.accent400
-                      : AppColors.border700,
+                  color: checked ? AppColors.accent400 : AppColors.border700,
                   width: 1.5,
                 ),
               ),
               child: checked
-                  ? const Icon(Icons.check,
-                      size: 10, color: AppColors.bg950)
+                  ? const Icon(Icons.check, size: 10, color: AppColors.bg950)
                   : null,
             ),
             const SizedBox(width: 10),
@@ -1350,8 +1528,7 @@ class _CheckRow extends StatelessWidget {
               child: Text(
                 label,
                 style: AppTypography.body.copyWith(
-                  color:
-                      checked ? AppColors.text200 : AppColors.text400,
+                  color: checked ? AppColors.text200 : AppColors.text400,
                 ),
               ),
             ),
@@ -1382,6 +1559,7 @@ class _TaskItem extends StatefulWidget {
   final Future<void> Function(String? notes) onUpdateNotes;
   final Future<void> Function(String? colorLabel) onUpdateColorLabel;
   final VoidCallback onTogglePin;
+
   /// When non-null, a ↪ button is shown on hover to start a new session
   /// in the same working directory.
   final VoidCallback? onContinueHere;
@@ -1408,6 +1586,10 @@ class _TaskItem extends StatefulWidget {
   /// True when this session's parent is also visible in the list — renders
   /// a tree-connector indent so the relay chain is visually grouped.
   final bool isChainChild;
+
+  /// Latest CPU + RSS snapshot for this session (null when unavailable).
+  /// Shown as a compact `cpu · mem` chip next to the elapsed timer.
+  final ProcessStats? processStats;
 
   const _TaskItem({
     required this.session,
@@ -1436,6 +1618,7 @@ class _TaskItem extends StatefulWidget {
     this.chainTarget,
     this.onChainTo,
     this.isChainChild = false,
+    this.processStats,
   });
 
   @override
@@ -1481,8 +1664,9 @@ class _TaskItemState extends State<_TaskItem> {
   void _syncTimer() {
     if (widget.status == 'running') {
       _timerStart ??= widget.session.createdAt;
-      _timerSub ??= Stream.periodic(const Duration(seconds: 1))
-          .listen((_) { if (mounted) setState(() {}); });
+      _timerSub ??= Stream.periodic(const Duration(seconds: 1)).listen((_) {
+        if (mounted) setState(() {});
+      });
     } else {
       _timerSub?.cancel();
       _timerSub = null;
@@ -1495,16 +1679,16 @@ class _TaskItemState extends State<_TaskItem> {
     final d = DateTime.now().difference(start);
     final m = d.inMinutes;
     final s = d.inSeconds % 60;
-    return m > 0
-        ? '${m}m ${s.toString().padLeft(2, '0')}s'
-        : '${s}s';
+    return m > 0 ? '${m}m ${s.toString().padLeft(2, '0')}s' : '${s}s';
   }
 
   void _startEdit() {
     setState(() {
       _editing = true;
       _nameController.selection = TextSelection(
-          baseOffset: 0, extentOffset: _nameController.text.length);
+        baseOffset: 0,
+        extentOffset: _nameController.text.length,
+      );
     });
     // Let the field render before requesting focus.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1515,10 +1699,10 @@ class _TaskItemState extends State<_TaskItem> {
   Future<void> _showContextMenu(BuildContext context, Offset pos) async {
     final l10n = AppLocalizations.of(context)!;
     final session = widget.session;
-    final hasDir = session.workingDirectory != null &&
+    final hasDir =
+        session.workingDirectory != null &&
         session.workingDirectory!.isNotEmpty;
-    final hasPrompt =
-        session.input != null && session.input!.trim().isNotEmpty;
+    final hasPrompt = session.input != null && session.input!.trim().isNotEmpty;
     final hasOutput =
         session.output != null && session.output!.trim().isNotEmpty;
     final canContinue = widget.onContinueHere != null && hasDir;
@@ -1533,21 +1717,30 @@ class _TaskItemState extends State<_TaskItem> {
       position: RelativeRect.fromLTRB(pos.dx, pos.dy, pos.dx + 1, pos.dy + 1),
       color: AppColors.bg800,
       shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
-          side: const BorderSide(color: AppColors.border700)),
+        borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
+        side: const BorderSide(color: AppColors.border700),
+      ),
       items: [
         if (widget.status == 'running' && widget.onInjectMessage != null) ...[
           PopupMenuItem<String>(
             value: 'inject',
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            child: Row(children: [
-              const Icon(Icons.send_outlined,
-                  size: 13, color: AppColors.emerald500),
-              const SizedBox(width: 8),
-              Text(l10n.injectMessageTooltip,
-                  style: AppTypography.body
-                      .copyWith(color: AppColors.emerald500)),
-            ]),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.send_outlined,
+                  size: 13,
+                  color: AppColors.emerald500,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  l10n.injectMessageTooltip,
+                  style: AppTypography.body.copyWith(
+                    color: AppColors.emerald500,
+                  ),
+                ),
+              ],
+            ),
           ),
           const PopupMenuDivider(height: 1),
         ],
@@ -1555,24 +1748,37 @@ class _TaskItemState extends State<_TaskItem> {
           PopupMenuItem<String>(
             value: 'continue_here',
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            child: Row(children: [
-              const Icon(Icons.subdirectory_arrow_right,
-                  size: 13, color: AppColors.accent400),
-              const SizedBox(width: 8),
-              Text(l10n.newTaskHere,
-                  style: AppTypography.body
-                      .copyWith(color: AppColors.accent400)),
-            ]),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.subdirectory_arrow_right,
+                  size: 13,
+                  color: AppColors.accent400,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  l10n.newTaskHere,
+                  style: AppTypography.body.copyWith(
+                    color: AppColors.accent400,
+                  ),
+                ),
+              ],
+            ),
           ),
         PopupMenuItem<String>(
           value: 'clone',
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          child: Row(children: [
-            const Icon(Icons.copy_all_outlined,
-                size: 13, color: AppColors.text400),
-            const SizedBox(width: 8),
-            Text(l10n.cloneSession, style: AppTypography.body),
-          ]),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.copy_all_outlined,
+                size: 13,
+                color: AppColors.text400,
+              ),
+              const SizedBox(width: 8),
+              Text(l10n.cloneSession, style: AppTypography.body),
+            ],
+          ),
         ),
         if (canContinue && otherAgents.isNotEmpty)
           const PopupMenuDivider(height: 1),
@@ -1580,155 +1786,210 @@ class _TaskItemState extends State<_TaskItem> {
           PopupMenuItem<String>(
             enabled: false,
             padding: const EdgeInsets.fromLTRB(14, 8, 14, 2),
-            child: Text(l10n.sendToAgent,
-                style: AppTypography.meta
-                    .copyWith(color: AppColors.text500)),
+            child: Text(
+              l10n.sendToAgent,
+              style: AppTypography.meta.copyWith(color: AppColors.text500),
+            ),
           ),
         if (otherAgents.length >= 2)
           PopupMenuItem<String>(
             value: 'relay_all',
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            child: Row(children: [
-              const Icon(Icons.share_outlined,
-                  size: 13, color: AppColors.accent400),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(l10n.relayToAll,
-                        style: AppTypography.body
-                            .copyWith(color: AppColors.accent400)),
-                    Text(l10n.relayToAllSubtitle(otherAgents.length),
-                        style: AppTypography.meta),
-                  ],
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.share_outlined,
+                  size: 13,
+                  color: AppColors.accent400,
                 ),
-              ),
-            ]),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        l10n.relayToAll,
+                        style: AppTypography.body.copyWith(
+                          color: AppColors.accent400,
+                        ),
+                      ),
+                      Text(
+                        l10n.relayToAllSubtitle(otherAgents.length),
+                        style: AppTypography.meta,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         for (final agent in otherAgents)
           PopupMenuItem<String>(
             value: 'dispatch:${agent.id}',
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            child: Row(children: [
-              const Icon(Icons.terminal, size: 13, color: AppColors.text400),
-              const SizedBox(width: 8),
-              Text(agent.displayName, style: AppTypography.body),
-            ]),
+            child: Row(
+              children: [
+                const Icon(Icons.terminal, size: 13, color: AppColors.text400),
+                const SizedBox(width: 8),
+                Text(agent.displayName, style: AppTypography.body),
+              ],
+            ),
           ),
         if (otherAgents.isNotEmpty) const PopupMenuDivider(height: 1),
         PopupMenuItem<String>(
           value: 'open_folder',
           enabled: hasDir,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          child: Row(children: [
-            Icon(Icons.folder_open,
+          child: Row(
+            children: [
+              Icon(
+                Icons.folder_open,
                 size: 13,
-                color: hasDir ? AppColors.text400 : AppColors.text500),
-            const SizedBox(width: 8),
-            Text(l10n.openInFinder,
+                color: hasDir ? AppColors.text400 : AppColors.text500,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                l10n.openInFinder,
                 style: AppTypography.body.copyWith(
-                    color: hasDir ? null : AppColors.text500)),
-          ]),
+                  color: hasDir ? null : AppColors.text500,
+                ),
+              ),
+            ],
+          ),
         ),
         PopupMenuItem<String>(
           value: 'copy_prompt',
           enabled: hasPrompt,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          child: Row(children: [
-            Icon(Icons.copy_outlined,
+          child: Row(
+            children: [
+              Icon(
+                Icons.copy_outlined,
                 size: 13,
-                color: hasPrompt ? AppColors.text400 : AppColors.text500),
-            const SizedBox(width: 8),
-            Text(l10n.copyPrompt,
+                color: hasPrompt ? AppColors.text400 : AppColors.text500,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                l10n.copyPrompt,
                 style: AppTypography.body.copyWith(
-                    color: hasPrompt ? null : AppColors.text500)),
-          ]),
+                  color: hasPrompt ? null : AppColors.text500,
+                ),
+              ),
+            ],
+          ),
         ),
         PopupMenuItem<String>(
           value: 'copy_output',
           enabled: hasOutput,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          child: Row(children: [
-            Icon(Icons.terminal,
+          child: Row(
+            children: [
+              Icon(
+                Icons.terminal,
                 size: 13,
-                color: hasOutput ? AppColors.text400 : AppColors.text500),
-            const SizedBox(width: 8),
-            Text(l10n.copyOutput,
+                color: hasOutput ? AppColors.text400 : AppColors.text500,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                l10n.copyOutput,
                 style: AppTypography.body.copyWith(
-                    color: hasOutput ? null : AppColors.text500)),
-          ]),
+                  color: hasOutput ? null : AppColors.text500,
+                ),
+              ),
+            ],
+          ),
         ),
         PopupMenuItem<String>(
           value: 'export_md',
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          child: Row(children: [
-            const Icon(Icons.download_outlined,
-                size: 13, color: AppColors.text400),
-            const SizedBox(width: 8),
-            Text(l10n.exportAsMarkdown, style: AppTypography.body),
-          ]),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.download_outlined,
+                size: 13,
+                color: AppColors.text400,
+              ),
+              const SizedBox(width: 8),
+              Text(l10n.exportAsMarkdown, style: AppTypography.body),
+            ],
+          ),
         ),
         PopupMenuItem<String>(
           value: 'toggle_pin',
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          child: Row(children: [
-            Icon(
-              widget.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
-              size: 13,
-              color: AppColors.text400,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              widget.isPinned ? l10n.unpinSession : l10n.pinSession,
-              style: AppTypography.body,
-            ),
-          ]),
+          child: Row(
+            children: [
+              Icon(
+                widget.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
+                size: 13,
+                color: AppColors.text400,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                widget.isPinned ? l10n.unpinSession : l10n.pinSession,
+                style: AppTypography.body,
+              ),
+            ],
+          ),
         ),
         PopupMenuItem<String>(
           value: 'edit_note',
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          child: Row(children: [
-            const Icon(Icons.edit_note_outlined,
-                size: 13, color: AppColors.text400),
-            const SizedBox(width: 8),
-            Text(l10n.editNote, style: AppTypography.body),
-          ]),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.edit_note_outlined,
+                size: 13,
+                color: AppColors.text400,
+              ),
+              const SizedBox(width: 8),
+              Text(l10n.editNote, style: AppTypography.body),
+            ],
+          ),
         ),
         PopupMenuItem<String>(
           value: 'set_color',
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          child: Row(children: [
-            const Icon(Icons.palette_outlined,
-                size: 13, color: AppColors.text400),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(l10n.setColor, style: AppTypography.body),
-            ),
-            if (widget.colorLabel != null)
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: AppColors.sessionColorLabels[widget.colorLabel!],
-                  shape: BoxShape.circle,
-                ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.palette_outlined,
+                size: 13,
+                color: AppColors.text400,
               ),
-          ]),
+              const SizedBox(width: 8),
+              Expanded(child: Text(l10n.setColor, style: AppTypography.body)),
+              if (widget.colorLabel != null)
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: AppColors.sessionColorLabels[widget.colorLabel!],
+                    shape: BoxShape.circle,
+                  ),
+                ),
+            ],
+          ),
         ),
         const PopupMenuDivider(height: 1),
         PopupMenuItem<String>(
           value: 'delete',
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          child: Row(children: [
-            const Icon(Icons.delete_outline,
-                size: 13, color: AppColors.red400),
-            const SizedBox(width: 8),
-            Text(l10n.delete,
-                style: AppTypography.body
-                    .copyWith(color: AppColors.red400)),
-          ]),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.delete_outline,
+                size: 13,
+                color: AppColors.red400,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                l10n.delete,
+                style: AppTypography.body.copyWith(color: AppColors.red400),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -1803,11 +2064,16 @@ class _TaskItemState extends State<_TaskItem> {
                         border: isSelected
                             ? Border.all(color: Colors.white, width: 2.5)
                             : Border.all(
-                                color: e.value.withAlpha(80), width: 1),
+                                color: e.value.withAlpha(80),
+                                width: 1,
+                              ),
                       ),
                       child: isSelected
-                          ? const Icon(Icons.check,
-                              size: 14, color: Colors.white)
+                          ? const Icon(
+                              Icons.check,
+                              size: 14,
+                              color: Colors.white,
+                            )
                           : null,
                     ),
                   ),
@@ -1820,13 +2086,22 @@ class _TaskItemState extends State<_TaskItem> {
                 onTap: () => Navigator.of(dialogCtx).pop(''),
                 child: MouseRegion(
                   cursor: SystemMouseCursors.click,
-                  child: Row(children: [
-                    const Icon(Icons.close, size: 13, color: AppColors.text400),
-                    const SizedBox(width: 6),
-                    Text(l10n.clearColor,
-                        style: AppTypography.body
-                            .copyWith(color: AppColors.text400)),
-                  ]),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.close,
+                        size: 13,
+                        color: AppColors.text400,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        l10n.clearColor,
+                        style: AppTypography.body.copyWith(
+                          color: AppColors.text400,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1835,8 +2110,7 @@ class _TaskItemState extends State<_TaskItem> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogCtx).pop(null),
-            style: TextButton.styleFrom(
-                foregroundColor: AppColors.text400),
+            style: TextButton.styleFrom(foregroundColor: AppColors.text400),
             child: Text(l10n.cancel),
           ),
         ],
@@ -1848,8 +2122,7 @@ class _TaskItemState extends State<_TaskItem> {
 
   Future<void> _showNoteDialog(BuildContext ctx) async {
     final l10n = AppLocalizations.of(ctx)!;
-    final ctl = TextEditingController(
-        text: widget.session.notes ?? '');
+    final ctl = TextEditingController(text: widget.session.notes ?? '');
     final saved = await showDialog<String?>(
       context: ctx,
       builder: (dialogCtx) => AlertDialog(
@@ -1882,15 +2155,12 @@ class _TaskItemState extends State<_TaskItem> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogCtx).pop(null),
-            style: TextButton.styleFrom(
-                foregroundColor: AppColors.text400),
+            style: TextButton.styleFrom(foregroundColor: AppColors.text400),
             child: Text(l10n.cancel),
           ),
           TextButton(
-            onPressed: () =>
-                Navigator.of(dialogCtx).pop(ctl.text),
-            style: TextButton.styleFrom(
-                foregroundColor: AppColors.accent400),
+            onPressed: () => Navigator.of(dialogCtx).pop(ctl.text),
+            style: TextButton.styleFrom(foregroundColor: AppColors.accent400),
             child: Text(l10n.save),
           ),
         ],
@@ -1917,10 +2187,10 @@ class _TaskItemState extends State<_TaskItem> {
     final bg = widget.isActive
         ? AppColors.accent10
         : widget.isKeyboardFocused
-            ? AppColors.bg800
-            : _hovered
-                ? AppColors.bg800
-                : Colors.transparent;
+        ? AppColors.bg800
+        : _hovered
+        ? AppColors.bg800
+        : Colors.transparent;
 
     final labelColor = widget.colorLabel != null
         ? AppColors.sessionColorLabels[widget.colorLabel!]
@@ -1942,14 +2212,15 @@ class _TaskItemState extends State<_TaskItem> {
           border: _editing
               ? Border.all(color: AppColors.accent400, width: 1)
               : labelColor != null
-                  ? Border(
-                      left: BorderSide(color: labelColor, width: 3))
-                  : widget.isChainChild
-                      ? Border(
-                          left: BorderSide(
-                              color: AppColors.emerald500.withAlpha(80),
-                              width: 2))
-                      : null,
+              ? Border(left: BorderSide(color: labelColor, width: 3))
+              : widget.isChainChild
+              ? Border(
+                  left: BorderSide(
+                    color: AppColors.emerald500.withAlpha(80),
+                    width: 2,
+                  ),
+                )
+              : null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1958,7 +2229,8 @@ class _TaskItemState extends State<_TaskItem> {
             GestureDetector(
               onTap: _editing ? null : widget.onTap,
               onDoubleTap: _startEdit,
-              onSecondaryTapUp: (d) => _showContextMenu(context, d.globalPosition),
+              onSecondaryTapUp: (d) =>
+                  _showContextMenu(context, d.globalPosition),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.sidebarItemPaddingH,
@@ -1967,9 +2239,11 @@ class _TaskItemState extends State<_TaskItem> {
                 child: Row(
                   children: [
                     if (widget.isChainChild) ...[
-                      const Icon(Icons.subdirectory_arrow_right_outlined,
-                          size: 11,
-                          color: Color(0x9910b981)), // emerald, 60% alpha
+                      const Icon(
+                        Icons.subdirectory_arrow_right_outlined,
+                        size: 11,
+                        color: Color(0x9910b981),
+                      ), // emerald, 60% alpha
                       const SizedBox(width: 4),
                     ],
                     Container(
@@ -1989,8 +2263,9 @@ class _TaskItemState extends State<_TaskItem> {
                             TextField(
                               controller: _nameController,
                               focusNode: _focusNode,
-                              style: AppTypography.sidebarItem(selected: true)
-                                  .copyWith(fontSize: 13),
+                              style: AppTypography.sidebarItem(
+                                selected: true,
+                              ).copyWith(fontSize: 13),
                               cursorColor: AppColors.accent400,
                               cursorWidth: 1.5,
                               decoration: const InputDecoration(
@@ -2009,14 +2284,14 @@ class _TaskItemState extends State<_TaskItem> {
                                   child: Text(
                                     widget.session.name,
                                     style: AppTypography.sidebarItem(
-                                        selected: widget.isActive),
+                                      selected: widget.isActive,
+                                    ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 // Unread-output dot (background terminal
                                 // produced output since last viewed)
-                                if (widget.hasUnread &&
-                                    !widget.isActive) ...[
+                                if (widget.hasUnread && !widget.isActive) ...[
                                   const SizedBox(width: 6),
                                   Container(
                                     width: 6,
@@ -2029,9 +2304,11 @@ class _TaskItemState extends State<_TaskItem> {
                                 ],
                                 if (widget.isPinned && !_hovered) ...[
                                   const SizedBox(width: 4),
-                                  const Icon(Icons.push_pin,
-                                      size: 9,
-                                      color: AppColors.accent400),
+                                  const Icon(
+                                    Icons.push_pin,
+                                    size: 9,
+                                    color: AppColors.accent400,
+                                  ),
                                 ],
                                 // Cluster badge: shown when this session was
                                 // created as part of a multi-agent batch run.
@@ -2039,8 +2316,11 @@ class _TaskItemState extends State<_TaskItem> {
                                 if (widget.clusterSize > 1) ...[
                                   const SizedBox(width: 4),
                                   Tooltip(
-                                    message: 'Cluster run · ${widget.clusterSize} agents — tap to compare',
-                                    waitDuration: const Duration(milliseconds: 400),
+                                    message:
+                                        'Cluster run · ${widget.clusterSize} agents — tap to compare',
+                                    waitDuration: const Duration(
+                                      milliseconds: 400,
+                                    ),
                                     child: GestureDetector(
                                       onTap: widget.onViewCluster,
                                       child: MouseRegion(
@@ -2049,12 +2329,19 @@ class _TaskItemState extends State<_TaskItem> {
                                             : SystemMouseCursors.basic,
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(
-                                              horizontal: 4, vertical: 1),
+                                            horizontal: 4,
+                                            vertical: 1,
+                                          ),
                                           decoration: BoxDecoration(
-                                            color: AppColors.accent400.withAlpha(30),
-                                            borderRadius: BorderRadius.circular(4),
+                                            color: AppColors.accent400
+                                                .withAlpha(30),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
                                             border: Border.all(
-                                                color: AppColors.accent400.withAlpha(80)),
+                                              color: AppColors.accent400
+                                                  .withAlpha(80),
+                                            ),
                                           ),
                                           child: Text(
                                             '×${widget.clusterSize}',
@@ -2076,29 +2363,37 @@ class _TaskItemState extends State<_TaskItem> {
                                   Tooltip(
                                     message:
                                         '⛓ Auto-relay → ${widget.chainTarget!.displayName} (tap to cancel)',
-                                    waitDuration: const Duration(milliseconds: 300),
+                                    waitDuration: const Duration(
+                                      milliseconds: 300,
+                                    ),
                                     child: GestureDetector(
                                       onTap: () => widget.onChainTo?.call(null),
                                       child: MouseRegion(
                                         cursor: SystemMouseCursors.click,
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(
-                                              horizontal: 4, vertical: 1),
+                                            horizontal: 4,
+                                            vertical: 1,
+                                          ),
                                           decoration: BoxDecoration(
-                                            color:
-                                                AppColors.emerald500.withAlpha(30),
-                                            borderRadius:
-                                                BorderRadius.circular(4),
+                                            color: AppColors.emerald500
+                                                .withAlpha(30),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
                                             border: Border.all(
-                                                color: AppColors.emerald500
-                                                    .withAlpha(80)),
+                                              color: AppColors.emerald500
+                                                  .withAlpha(80),
+                                            ),
                                           ),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              const Icon(Icons.link,
-                                                  size: 8,
-                                                  color: AppColors.emerald500),
+                                              const Icon(
+                                                Icons.link,
+                                                size: 8,
+                                                color: AppColors.emerald500,
+                                              ),
                                               const SizedBox(width: 2),
                                               Text(
                                                 widget.chainTarget!.displayName,
@@ -2118,25 +2413,40 @@ class _TaskItemState extends State<_TaskItem> {
                                 ],
                                 // Workflow badge — shown when session belongs to a DAG workflow run.
                                 if (widget.session.workflowRunId != null &&
-                                    widget.session.workflowRunId!.isNotEmpty) ...[
+                                    widget
+                                        .session
+                                        .workflowRunId!
+                                        .isNotEmpty) ...[
                                   const SizedBox(width: 4),
                                   Tooltip(
                                     message: 'Part of a workflow run',
-                                    waitDuration: const Duration(milliseconds: 300),
+                                    waitDuration: const Duration(
+                                      milliseconds: 300,
+                                    ),
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 4, vertical: 1),
+                                        horizontal: 4,
+                                        vertical: 1,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: AppColors.accent400.withAlpha(20),
+                                        color: AppColors.accent400.withAlpha(
+                                          20,
+                                        ),
                                         borderRadius: BorderRadius.circular(4),
                                         border: Border.all(
-                                            color: AppColors.accent400.withAlpha(60)),
+                                          color: AppColors.accent400.withAlpha(
+                                            60,
+                                          ),
+                                        ),
                                       ),
                                       child: const Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(Icons.account_tree,
-                                              size: 8, color: AppColors.accent400),
+                                          Icon(
+                                            Icons.account_tree,
+                                            size: 8,
+                                            color: AppColors.accent400,
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -2153,21 +2463,36 @@ class _TaskItemState extends State<_TaskItem> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              if (widget.status == 'running')
+                              if (widget.status == 'running') ...[
                                 Text(
                                   _elapsed(),
                                   style: AppTypography.meta.copyWith(
                                     color: AppColors.emerald500,
                                     fontFamily: 'Menlo',
                                   ),
-                                )
-                              else if ((widget.status ==
-                                          'completed' ||
+                                ),
+                                if (widget.processStats != null) ...[
+                                  const SizedBox(width: 4),
+                                  Tooltip(
+                                    message: 'CPU · RAM',
+                                    waitDuration: const Duration(
+                                      milliseconds: 300,
+                                    ),
+                                    child: Text(
+                                      '${widget.processStats!.cpuLabel} · ${widget.processStats!.memLabel}',
+                                      style: AppTypography.meta.copyWith(
+                                        color: AppColors.text500,
+                                        fontFamily: 'Menlo',
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ] else if ((widget.status == 'completed' ||
                                       widget.status == 'failed') &&
                                   widget.session.durationMs != null)
                                 Text(
-                                  _formatDurationMs(
-                                      widget.session.durationMs),
+                                  _formatDurationMs(widget.session.durationMs),
                                   style: AppTypography.meta.copyWith(
                                     color: widget.status == 'completed'
                                         ? AppColors.text500
@@ -2203,14 +2528,17 @@ class _TaskItemState extends State<_TaskItem> {
                           waitDuration: const Duration(milliseconds: 400),
                           child: GestureDetector(
                             onTap: widget.onClone,
-                            child: const Icon(Icons.replay,
-                                size: AppSpacing.iconSm,
-                                color: AppColors.accent400),
+                            child: const Icon(
+                              Icons.replay,
+                              size: AppSpacing.iconSm,
+                              color: AppColors.accent400,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 6),
                       ],
-                      if (widget.status == 'running' && widget.onChainTo != null) ...[
+                      if (widget.status == 'running' &&
+                          widget.onChainTo != null) ...[
                         _ChainButton(
                           agents: widget.agents,
                           currentTarget: widget.chainTarget,
@@ -2218,27 +2546,37 @@ class _TaskItemState extends State<_TaskItem> {
                         ),
                         const SizedBox(width: 6),
                       ],
-                      if (widget.status == 'running' && widget.onInjectMessage != null)
+                      if (widget.status == 'running' &&
+                          widget.onInjectMessage != null)
                         Tooltip(
-                          message: AppLocalizations.of(context)!.injectMessageTooltip,
+                          message: AppLocalizations.of(
+                            context,
+                          )!.injectMessageTooltip,
                           waitDuration: const Duration(milliseconds: 400),
                           child: GestureDetector(
                             onTap: widget.onInjectMessage,
-                            child: const Icon(Icons.send_outlined,
-                                size: AppSpacing.iconSm,
-                                color: AppColors.emerald500),
+                            child: const Icon(
+                              Icons.send_outlined,
+                              size: AppSpacing.iconSm,
+                              color: AppColors.emerald500,
+                            ),
                           ),
                         ),
-                      if (widget.status == 'running' && widget.onInjectMessage != null)
+                      if (widget.status == 'running' &&
+                          widget.onInjectMessage != null)
                         const SizedBox(width: 6),
                       if (widget.onContinueHere != null)
                         Tooltip(
-                          message: AppLocalizations.of(context)!.newTaskSameFolder,
+                          message: AppLocalizations.of(
+                            context,
+                          )!.newTaskSameFolder,
                           child: GestureDetector(
                             onTap: widget.onContinueHere,
-                            child: const Icon(Icons.subdirectory_arrow_right,
-                                size: AppSpacing.iconSm,
-                                color: AppColors.accent400),
+                            child: const Icon(
+                              Icons.subdirectory_arrow_right,
+                              size: AppSpacing.iconSm,
+                              color: AppColors.accent400,
+                            ),
                           ),
                         ),
                       if (widget.onContinueHere != null)
@@ -2263,16 +2601,20 @@ class _TaskItemState extends State<_TaskItem> {
                       const SizedBox(width: 6),
                       GestureDetector(
                         onTap: _startEdit,
-                        child: const Icon(Icons.edit_outlined,
-                            size: AppSpacing.iconSm,
-                            color: AppColors.text500),
+                        child: const Icon(
+                          Icons.edit_outlined,
+                          size: AppSpacing.iconSm,
+                          color: AppColors.text500,
+                        ),
                       ),
                       const SizedBox(width: 6),
                       GestureDetector(
                         onTap: widget.onDelete,
-                        child: const Icon(Icons.delete_outline,
-                            size: AppSpacing.iconSm,
-                            color: AppColors.text500),
+                        child: const Icon(
+                          Icons.delete_outline,
+                          size: AppSpacing.iconSm,
+                          color: AppColors.text500,
+                        ),
                       ),
                       const SizedBox(width: 4),
                     ],
@@ -2284,9 +2626,7 @@ class _TaskItemState extends State<_TaskItem> {
                             ? Icons.keyboard_arrow_up
                             : Icons.keyboard_arrow_down,
                         size: 14,
-                        color: _hovered
-                            ? AppColors.text400
-                            : AppColors.text500,
+                        color: _hovered ? AppColors.text400 : AppColors.text500,
                       ),
                     ),
                   ],
@@ -2332,8 +2672,8 @@ class _DetailPanelState extends State<_DetailPanel> {
           .read<AppDatabase>()
           .getSessionName(widget.session.parentSessionId)
           .then((name) {
-        if (mounted) setState(() => _parentName = name);
-      });
+            if (mounted) setState(() => _parentName = name);
+          });
     }
   }
 
@@ -2347,13 +2687,18 @@ class _DetailPanelState extends State<_DetailPanel> {
         children: [
           const Divider(height: 8, color: AppColors.border800),
           if (_parentName != null)
-            _row(Icons.link, 'Relayed from: $_parentName',
-                color: AppColors.emerald500),
+            _row(
+              Icons.link,
+              'Relayed from: $_parentName',
+              color: AppColors.emerald500,
+            ),
           if (s.workingDirectory != null && s.workingDirectory!.isNotEmpty)
             _row(
               Icons.folder_open,
-              s.workingDirectory!
-                  .replaceFirst(RegExp(r'^.*/([^/]+/[^/]+)$'), r'…/\1'),
+              s.workingDirectory!.replaceFirst(
+                RegExp(r'^.*/([^/]+/[^/]+)$'),
+                r'…/\1',
+              ),
               tooltip: s.workingDirectory!,
             ),
           _row(Icons.timer_outlined, _formatDurationMs(s.durationMs)),
@@ -2363,16 +2708,15 @@ class _DetailPanelState extends State<_DetailPanel> {
                   ? Icons.check_circle_outline
                   : Icons.error_outline,
               AppLocalizations.of(context)!.exitCode(s.exitCode!),
-              color: s.exitCode == 0
-                  ? AppColors.emerald500
-                  : AppColors.red400,
+              color: s.exitCode == 0 ? AppColors.emerald500 : AppColors.red400,
             ),
           _row(
             Icons.schedule_outlined,
             _fmtDate(AppLocalizations.of(context)!, s.createdAt),
           ),
           // User note — shown when a note has been attached.
-          if (s.notes != null && s.notes!.isNotEmpty) ...[const SizedBox(height: 4),
+          if (s.notes != null && s.notes!.isNotEmpty) ...[
+            const SizedBox(height: 4),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(6),
@@ -2381,18 +2725,23 @@ class _DetailPanelState extends State<_DetailPanel> {
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: AppColors.accent30),
               ),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Padding(
                     padding: EdgeInsets.only(top: 1, right: 5),
-                    child: Icon(Icons.sticky_note_2_outlined,
-                        size: 11, color: AppColors.accent400),
+                    child: Icon(
+                      Icons.sticky_note_2_outlined,
+                      size: 11,
+                      color: AppColors.accent400,
+                    ),
                   ),
                   Expanded(
                     child: Text(
                       s.notes!,
                       style: AppTypography.monoSmall.copyWith(
-                          color: AppColors.accent400),
+                        color: AppColors.accent400,
+                      ),
                       maxLines: 5,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -2423,13 +2772,13 @@ class _DetailPanelState extends State<_DetailPanel> {
                     decoration: BoxDecoration(
                       color: AppColors.bg800,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                          color: AppColors.border800),
+                      border: Border.all(color: AppColors.border800),
                     ),
                     child: Text(
                       AnsiUtils.tail(s.output!, maxChars: 300),
-                      style: AppTypography.monoSmall
-                          .copyWith(color: AppColors.text400),
+                      style: AppTypography.monoSmall.copyWith(
+                        color: AppColors.text400,
+                      ),
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -2443,15 +2792,12 @@ class _DetailPanelState extends State<_DetailPanel> {
     );
   }
 
-  Widget _row(IconData icon, String text,
-      {String? tooltip, Color? color}) {
+  Widget _row(IconData icon, String text, {String? tooltip, Color? color}) {
     final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Icon(icon,
-              size: 11,
-              color: color ?? AppColors.text500),
+          Icon(icon, size: 11, color: color ?? AppColors.text500),
           const SizedBox(width: 5),
           Expanded(
             child: Text(
@@ -2465,12 +2811,8 @@ class _DetailPanelState extends State<_DetailPanel> {
         ],
       ),
     );
-    return tooltip != null
-        ? Tooltip(message: tooltip, child: row)
-        : row;
+    return tooltip != null ? Tooltip(message: tooltip, child: row) : row;
   }
-
-
 }
 
 /// Small hover button that opens an agent picker popup for the auto-relay
@@ -2521,37 +2863,41 @@ class _ChainButton extends StatelessWidget {
           PopupMenuItem<String>(
             value: agent.id,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: Row(children: [
-              Icon(
-                currentTarget?.id == agent.id
-                    ? Icons.link
-                    : Icons.link_outlined,
-                size: 13,
-                color: currentTarget?.id == agent.id
-                    ? AppColors.emerald500
-                    : AppColors.text400,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                agent.displayName,
-                style: AppTypography.body.copyWith(
+            child: Row(
+              children: [
+                Icon(
+                  currentTarget?.id == agent.id
+                      ? Icons.link
+                      : Icons.link_outlined,
+                  size: 13,
                   color: currentTarget?.id == agent.id
                       ? AppColors.emerald500
-                      : null,
+                      : AppColors.text400,
                 ),
-              ),
-            ]),
+                const SizedBox(width: 8),
+                Text(
+                  agent.displayName,
+                  style: AppTypography.body.copyWith(
+                    color: currentTarget?.id == agent.id
+                        ? AppColors.emerald500
+                        : null,
+                  ),
+                ),
+              ],
+            ),
           ),
         if (currentTarget != null) ...[
           const PopupMenuDivider(height: 1),
           const PopupMenuItem<String>(
             value: '__clear__',
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: Row(children: [
-              Icon(Icons.link_off, size: 13, color: AppColors.text400),
-              SizedBox(width: 8),
-              Text('Remove chain'),
-            ]),
+            child: Row(
+              children: [
+                Icon(Icons.link_off, size: 13, color: AppColors.text400),
+                SizedBox(width: 8),
+                Text('Remove chain'),
+              ],
+            ),
           ),
         ],
       ],
@@ -2631,8 +2977,7 @@ class _StatusChip extends StatelessWidget {
                 label,
                 style: AppTypography.meta.copyWith(
                   color: isSelected ? activeColor : AppColors.text400,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
               if (count > 0) ...[
@@ -2692,20 +3037,30 @@ class _SortButton extends StatelessWidget {
               return PopupMenuItem<String>(
                 value: opt.$1,
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
-                child: Row(children: [
-                  SizedBox(
-                    width: 14,
-                    child: isActive
-                        ? const Icon(Icons.check,
-                            size: 12, color: AppColors.accent400)
-                        : null,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(opt.$2, style: AppTypography.body.copyWith(
-                    color: isActive ? AppColors.accent400 : null,
-                  )),
-                ]),
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      child: isActive
+                          ? const Icon(
+                              Icons.check,
+                              size: 12,
+                              color: AppColors.accent400,
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      opt.$2,
+                      style: AppTypography.body.copyWith(
+                        color: isActive ? AppColors.accent400 : null,
+                      ),
+                    ),
+                  ],
+                ),
               );
             }).toList(),
           );

@@ -1,7 +1,7 @@
 name: coding_agent_dock
 description: "AI programming agent CLI detection & management on desktop"
 publish_to: 'none'
-version: 1.0.28+29
+version: 1.0.29+30
 
 environment:
   sdk: ^3.11.5
@@ -33,6 +33,10 @@ dependencies:
   uuid: ^4.5.3
   pasteboard: ^0.5.0
   desktop_drop: ^0.7.1
+
+  # --- Autopilot: LLM orchestration for autonomous coding loops ---
+  langchain: ^0.8.1
+  langchain_openai: ^0.8.1
 
 # Pin path_provider_foundation below 2.5.0: from 2.5.0 it builds via Dart
 # native-assets (the `objective_c` package), which Flutter 3.41 compiles for

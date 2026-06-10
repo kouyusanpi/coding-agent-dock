@@ -105,6 +105,12 @@ class CommandPalette extends StatefulWidget {
   /// Opens the skill manager dialog.
   final VoidCallback? onOpenSkills;
 
+  /// Opens the Loop Tasks panel.
+  final VoidCallback? onOpenLoopTasks;
+
+  /// Opens the Autopilot panel (autonomous coding loop).
+  final VoidCallback? onOpenAutopilot;
+
   const CommandPalette({
     super.key,
     required this.sessions,
@@ -124,6 +130,8 @@ class CommandPalette extends StatefulWidget {
     this.onOpenEventLog,
     this.onOpenWorkflows,
     this.onOpenSkills,
+    this.onOpenLoopTasks,
+    this.onOpenAutopilot,
   });
 
   @override
@@ -285,6 +293,27 @@ class _CommandPaletteState extends State<CommandPalette> {
           action: () {
             Navigator.of(context).pop();
             widget.onOpenSkills!();
+          },
+        ),
+      if (widget.onOpenLoopTasks != null)
+        _ActionEntry(
+          title: 'Loop Tasks',
+          subtitle: 'Run a prompt N times across one or more iterations',
+          icon: Icons.loop,
+          action: () {
+            Navigator.of(context).pop();
+            widget.onOpenLoopTasks!();
+          },
+        ),
+      if (widget.onOpenAutopilot != null)
+        _ActionEntry(
+          title: 'Autopilot',
+          subtitle:
+              'LLM-driven autonomous loop: plan → run agent → evaluate → next step',
+          icon: Icons.smart_toy_outlined,
+          action: () {
+            Navigator.of(context).pop();
+            widget.onOpenAutopilot!();
           },
         ),
     ];

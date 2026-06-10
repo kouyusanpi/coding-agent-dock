@@ -277,5 +277,56 @@ agentdock_kv_list() {
       2>/dev/null
   fi
 }
+
+# Spawn a new agent session from within another agent.
+# The new session is opened in the AgentDock UI immediately.
+# Usage: agentdock_spawn AGENT_ID INPUT [WORKING_DIR] [NAME]
+#   AGENT_ID    — e.g. "claude", "codex", "gemini"
+#   INPUT       — the task/prompt for the new session
+#   WORKING_DIR — optional; defaults to the server's working directory
+#   NAME        — optional display name in AgentDock
+# Prints the numeric session ID on success, exits 1 on failure.
+agentdock_spawn() {
+  local agent="${1:?Usage: agentdock_spawn AGENT_ID INPUT [WORKING_DIR] [NAME]}"
+  local input="${2:?Usage: agentdock_spawn AGENT_ID INPUT [WORKING_DIR] [NAME]}"
+  local workdir="${3:-}"
+  local name="${4:-}"
+  local payload
+  if command -v jq &>/dev/null; then
+    payload="$(jq -n \
+      --arg a "$agent" \
+      --arg i "$input" \
+      --arg w "$workdir" \
+      --arg n "$name" \
+      '{agent:$a,input:$i} |
+       if $w != "" then . + {workingDirectory:$w} else . end |
+       if $n != "" then . + {name:$n} else . end')"
+  else
+    local ea ei ew en
+    ea="$(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$agent")"
+    ei="$(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$input")"
+    payload="{\"agent\":${ea},\"input\":${ei}"
+    if [[ -n "$workdir" ]]; then
+      ew="$(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$workdir")"
+      payload="${payload},\"workingDirectory\":${ew}"
+    fi
+    if [[ -n "$name" ]]; then
+      en="$(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$name")"
+      payload="${payload},\"name\":${en}"
+    fi
+    payload="${payload}}"
+  fi
+  local resp
+  resp="$(curl -sf -X POST "${AGENTDOCK_API_BASE}/sessions" \
+    -H "Content-Type: application/json" \
+    -d "$payload")" || { echo "agentdock_spawn: HTTP request failed" >&2; return 1; }
+  local sid
+  sid="$(_ad_json sessionId "$resp")"
+  if [[ -z "$sid" ]]; then
+    echo "agentdock_spawn: spawn failed — $resp" >&2
+    return 1
+  fi
+  printf '%s\n' "$sid"
+}
 ''';
 }

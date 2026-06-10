@@ -97,4 +97,43 @@ void main() {
       expect(AnsiUtils.tail(text, maxChars: 8000), text);
     });
   });
+
+  group('AnsiUtils.cleanForContext', () {
+    test('strips box-drawing chrome and keeps inner text', () {
+      const raw = '╭───────────╮\n│ continue  │\n╰───────────╯';
+      final result = AnsiUtils.cleanForContext(raw);
+      expect(result, 'continue');
+    });
+
+    test('collapses full-screen repaint duplicates', () {
+      // Three identical "frames" of a 2-line screen.
+      final frame = 'Building project\nRunning tests';
+      final raw = '$frame\n$frame\n$frame';
+      final result = AnsiUtils.cleanForContext(raw);
+      expect(result, 'Building project\nRunning tests');
+    });
+
+    test('keeps the most recent state when content changes', () {
+      const raw =
+          'Step 1 done\nStep 1 done\nStep 2 running\nStep 2 done';
+      final result = AnsiUtils.cleanForContext(raw);
+      expect(result, 'Step 1 done\nStep 2 running\nStep 2 done');
+    });
+
+    test('strips ANSI escape sequences', () {
+      const raw = '\x1b[32mhello\x1b[0m\n\x1b[2K\x1b[1Gworld';
+      final result = AnsiUtils.cleanForContext(raw);
+      expect(result, 'hello\nworld');
+    });
+
+    test('respects the maxLines cap, keeping the latest lines', () {
+      final raw = List.generate(10, (i) => 'line $i').join('\n');
+      final result = AnsiUtils.cleanForContext(raw, maxLines: 3);
+      expect(result, 'line 7\nline 8\nline 9');
+    });
+
+    test('returns empty string for chrome-only input', () {
+      expect(AnsiUtils.cleanForContext('│ │ │\n───\n╰──╯'), '');
+    });
+  });
 }

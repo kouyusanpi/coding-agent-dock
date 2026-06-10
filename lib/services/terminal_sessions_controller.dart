@@ -11,6 +11,7 @@ import '../models/agent_cli.dart';
 import '../utils/ansi_utils.dart';
 import 'attachment_service.dart';
 import 'notification_service.dart';
+import 'process_monitor_service.dart';
 import 'project_memory_service.dart';
 import 'session_manager.dart';
 import 'settings_service.dart';
@@ -32,6 +33,7 @@ class ActiveTerminal {
   bool closing = false;
   int? exitCode;
   DateTime? startedAt;
+
   /// Effective working directory used when the PTY was last launched.
   String? workingDirectory;
 
@@ -110,6 +112,12 @@ class ActiveTerminal {
     return AnsiUtils.tail(AnsiUtils.stripAnsi(raw), maxChars: 8000);
   }
 
+  /// Cleaned plain-text snapshot of recent output for LLM context — strips
+  /// ANSI and TUI chrome and collapses full-screen repaint duplicates so a
+  /// supervising LLM sees the agent's real output, not box-border noise.
+  String contextSnapshot({int maxLines = 120}) =>
+      AnsiUtils.cleanForContext(_outputBuffer.toString(), maxLines: maxLines);
+
   /// Return the last [maxLines] non-empty lines of the output buffer without
   /// flushing it. Used for live output tails in the cluster comparison dialog.
   String peekOutput({int maxLines = 5}) {
@@ -129,8 +137,8 @@ class ActiveTerminal {
     required this.cli,
     required this.agentSessionId,
     required this.hasLaunchedBefore,
-  })  : terminal = Terminal(maxLines: 10000),
-        viewController = TerminalController();
+  }) : terminal = Terminal(maxLines: 10000),
+       viewController = TerminalController();
 
   bool get running => pty != null;
 
@@ -184,6 +192,22 @@ class TerminalSessionsController extends ChangeNotifier {
   void Function(String sessionName, String agentName)? onMemorySynced;
 
   Timer? _memorySyncTimer;
+
+  /// Latest CPU + RSS stats per running session, updated by [updateProcessStats].
+  ///
+  /// Home screen polls [ProcessMonitorService] every ~3 s and writes here.
+  /// Callers read via [statsOf]; writes call [notifyListeners] so the task panel
+  /// picks up fresh values without a separate subscription.
+  Map<int, ProcessStats> _processStats = {};
+
+  /// Return the latest [ProcessStats] for [sessionId], or null when unavailable.
+  ProcessStats? statsOf(int sessionId) => _processStats[sessionId];
+
+  /// Replace the full stats snapshot and notify listeners so the UI refreshes.
+  void updateProcessStats(Map<int, ProcessStats> stats) {
+    _processStats = stats;
+    notifyListeners();
+  }
 
   /// Last-seen modification time of each project's shared-memory file, keyed by
   /// working directory. Lets [_pollSharedMemory] skip directories whose shared
@@ -283,8 +307,9 @@ class TerminalSessionsController extends ChangeNotifier {
       final wd = entry.key;
       DateTime mtime;
       try {
-        final stat =
-            await File(ProjectMemoryService.sharedMemoryPath(wd)).stat();
+        final stat = await File(
+          ProjectMemoryService.sharedMemoryPath(wd),
+        ).stat();
         if (stat.type == FileSystemEntityType.notFound) {
           _lastSharedMtime.remove(wd);
           continue;
@@ -327,7 +352,8 @@ class TerminalSessionsController extends ChangeNotifier {
     notifyListeners();
   }
 
-  ActiveTerminal? get active => _activeId == null ? null : _terminals[_activeId];
+  ActiveTerminal? get active =>
+      _activeId == null ? null : _terminals[_activeId];
 
   int? get activeId => _activeId;
 
@@ -386,6 +412,12 @@ class TerminalSessionsController extends ChangeNotifier {
   String getOutputTail(int sessionId, {int maxLines = 5}) =>
       _terminals[sessionId]?.peekOutput(maxLines: maxLines) ?? '';
 
+  /// Cleaned LLM-context snapshot of a session's output (see
+  /// [ActiveTerminal.contextSnapshot]). Used by the Autopilot to feed the
+  /// supervising LLM real agent output instead of TUI repaint noise.
+  String getAgentContext(int sessionId, {int maxLines = 120}) =>
+      _terminals[sessionId]?.contextSnapshot(maxLines: maxLines) ?? '';
+
   /// Terminals whose CLI process is currently running.
   List<ActiveTerminal> get runningTerminals =>
       _order.map((id) => _terminals[id]!).where((t) => t.running).toList();
@@ -407,7 +439,7 @@ class TerminalSessionsController extends ChangeNotifier {
   int broadcast(String text) {
     final targets = runningTerminals;
     for (final term in targets) {
-      term.sendText('$text\r');
+      term.sendText('$text\n');
     }
     return targets.length;
   }
@@ -418,8 +450,43 @@ class TerminalSessionsController extends ChangeNotifier {
   int sendToSession(int sessionId, String text) {
     final term = _terminals[sessionId];
     if (term == null || !term.running) return 0;
-    term.sendText('$text\r');
+    term.sendText('$text\n');
     return 1;
+  }
+
+  /// Type [text] into a session's prompt, then submit it with Enter.
+  ///
+  /// The Enter is a carriage return (`\r`) — the canonical Enter keystroke
+  /// Ink/React TUIs (Claude Code, CodeWhale, …) submit on (`\n` is treated as a
+  /// newline inside the box, leaving instructions unsent and piling up). It is
+  /// sent as a SEPARATE write after a short delay: these TUIs ingest the
+  /// injected text as a paste and only submit on a later, standalone Enter — a
+  /// back-to-back `\r` gets absorbed into the paste and the line sits unsent.
+  /// Used by the Autopilot to drive agents. Returns 1 if the text was written.
+  int submitToSession(int sessionId, String text) {
+    final term = _terminals[sessionId];
+    if (term == null || !term.running) return 0;
+    term.sendText(text);
+    Timer(_submitEnterDelay, () {
+      final t = _terminals[sessionId];
+      if (t != null && t.running) t.sendText('\r');
+    });
+    return 1;
+  }
+
+  /// Delay between typing injected text and pressing Enter — lets the TUI
+  /// render the pasted input before the standalone submit keystroke arrives.
+  static const _submitEnterDelay = Duration(milliseconds: 180);
+
+  /// Send [raw] bytes straight to a session's PTY stdin with NO trailing Enter.
+  /// Used by the Autopilot to send single keystrokes (Enter, Space, arrows,
+  /// Ctrl-combos) when answering an agent's interactive prompt/menu.
+  /// Returns true if written, false when the session has no running terminal.
+  bool sendRawToSession(int sessionId, String raw) {
+    final term = _terminals[sessionId];
+    if (term == null || !term.running) return false;
+    term.sendText(raw);
+    return true;
   }
 
   // --- Attachments (image paste / drag-drop / file picker) ---
@@ -480,8 +547,11 @@ class TerminalSessionsController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _launch(ActiveTerminal term,
-      {String? prompt, bool bare = false}) async {
+  Future<void> _launch(
+    ActiveTerminal term, {
+    String? prompt,
+    bool bare = false,
+  }) async {
     final cli = term.cli;
     if (cli.binaryPath == null) {
       term.terminal.write(
@@ -493,16 +563,18 @@ class TerminalSessionsController extends ChangeNotifier {
     // Older records may predate session-id tracking — assign one now.
     if (cli.id == 'claude' &&
         (term.agentSessionId == null || term.agentSessionId!.isEmpty)) {
-      term.agentSessionId =
-          await sessionManager.assignAgentSessionId(term.sessionId);
+      term.agentSessionId = await sessionManager.assignAgentSessionId(
+        term.sessionId,
+      );
       term.hasLaunchedBefore = false;
     }
 
     final session = await sessionManager.getSession(term.sessionId);
     final resolvedWd = _workingDirectory(session?.workingDirectory);
     final projectDir = session?.workingDirectory?.trim();
-    term.workingDirectory =
-        projectDir != null && projectDir.isNotEmpty ? projectDir : null;
+    term.workingDirectory = projectDir != null && projectDir.isNotEmpty
+        ? projectDir
+        : null;
 
     // Seed denied options from persisted per-CLI state so flags this version is
     // already known to reject are stripped up-front (no fail-then-retry churn).
@@ -579,28 +651,28 @@ class TerminalSessionsController extends ChangeNotifier {
         .cast<List<int>>()
         .transform(const Utf8Decoder(allowMalformed: true))
         .listen((data) {
-      term.terminal.write(data);
-      term._appendOutput(data);
-      // Detect a "cannot resume this session" error so [_onExit] can recover.
-      if (term.launchedWithResume &&
-          !term.resumeErrorSeen &&
-          looksLikeResumeFailure(data)) {
-        term.resumeErrorSeen = true;
-      }
-      // Detect a rejected launch argument (e.g. an unsupported `--effort`) so
-      // [_onExit] can strip just that flag (or fall back to the bare command).
-      if (term.launchedWithArgs &&
-          !term.argErrorSeen &&
-          looksLikeArgError(data)) {
-        term.argErrorSeen = true;
-        term.rejectedOption = extractRejectedOption(data);
-      }
-      // Background output → unread dot (only notify on the transition).
-      if (_activeId != term.sessionId && !term.closing && !term.hasUnread) {
-        term.hasUnread = true;
-        notifyListeners();
-      }
-    });
+          term.terminal.write(data);
+          term._appendOutput(data);
+          // Detect a "cannot resume this session" error so [_onExit] can recover.
+          if (term.launchedWithResume &&
+              !term.resumeErrorSeen &&
+              looksLikeResumeFailure(data)) {
+            term.resumeErrorSeen = true;
+          }
+          // Detect a rejected launch argument (e.g. an unsupported `--effort`) so
+          // [_onExit] can strip just that flag (or fall back to the bare command).
+          if (term.launchedWithArgs &&
+              !term.argErrorSeen &&
+              looksLikeArgError(data)) {
+            term.argErrorSeen = true;
+            term.rejectedOption = extractRejectedOption(data);
+          }
+          // Background output → unread dot (only notify on the transition).
+          if (_activeId != term.sessionId && !term.closing && !term.hasUnread) {
+            term.hasUnread = true;
+            notifyListeners();
+          }
+        });
 
     term.terminal.onOutput = (data) {
       // When attachments are queued, inject their paths right before the
@@ -632,7 +704,8 @@ class TerminalSessionsController extends ChangeNotifier {
         ? null
         : DateTime.now().difference(term.startedAt!).inMilliseconds;
 
-    final quickFail = code != 0 &&
+    final quickFail =
+        code != 0 &&
         durationMs != null &&
         durationMs < _resumeQuickFailWindow.inMilliseconds;
 
@@ -658,8 +731,10 @@ class TerminalSessionsController extends ChangeNotifier {
           '\r\n\x1b[33m[AgentDock] 不支持的启动参数 $opt — 已移除并重新启动…\x1b[0m\r\n',
         );
         final session = await sessionManager.getSession(term.sessionId);
-        await _launch(term,
-            prompt: term.launchedWithResume ? null : session?.input);
+        await _launch(
+          term,
+          prompt: term.launchedWithResume ? null : session?.input,
+        );
         return;
       }
 
@@ -692,8 +767,9 @@ class TerminalSessionsController extends ChangeNotifier {
       term.pty = null;
       // Fresh id avoids a "session already exists" collision when the old
       // transcript exists but is corrupt/unresumable.
-      term.agentSessionId =
-          await sessionManager.assignAgentSessionId(term.sessionId);
+      term.agentSessionId = await sessionManager.assignAgentSessionId(
+        term.sessionId,
+      );
       term.hasLaunchedBefore = false;
       term.terminal.write(
         '\r\n\x1b[33m[AgentDock] Could not resume the previous session — '
@@ -724,11 +800,13 @@ class TerminalSessionsController extends ChangeNotifier {
     if (!term.closing) {
       // Fire a macOS system notification so the user knows the result even
       // when the app is in the background.
-      unawaited(NotificationService.taskFinished(
-        taskName: term.sessionName,
-        agentName: term.cli.displayName,
-        status: term.effectiveStatus,
-      ));
+      unawaited(
+        NotificationService.taskFinished(
+          taskName: term.sessionName,
+          agentName: term.cli.displayName,
+          status: term.effectiveStatus,
+        ),
+      );
       _exitController.add((sessionId: term.sessionId, exitCode: code));
       notifyListeners();
     }

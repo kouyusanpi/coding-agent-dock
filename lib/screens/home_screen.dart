@@ -21,6 +21,7 @@ import '../services/helpers_script_service.dart';
 import '../services/ipc_server.dart';
 import '../services/pipeline_rule_service.dart';
 import '../services/notification_service.dart';
+import '../services/process_monitor_service.dart';
 import '../services/project_memory_service.dart';
 import '../services/session_manager.dart';
 import '../services/session_template_service.dart';
@@ -45,6 +46,13 @@ import '../widgets/event_log_panel.dart';
 import '../widgets/settings_drawer.dart';
 import '../widgets/skill_manager_dialog.dart';
 import '../widgets/terminal_pane.dart';
+import '../models/loop_task.dart';
+import '../services/autopilot_engine.dart';
+import '../models/autopilot_run_record.dart';
+import '../services/autopilot_manager.dart';
+import '../services/autopilot_llm.dart';
+import '../widgets/autopilot_panel.dart';
+import '../widgets/loop_task_panel.dart';
 import '../widgets/workflow_templates_dialog.dart';
 import '../widgets/workflow_run_dialog.dart';
 import '../models/workflow_definition.dart';
@@ -101,6 +109,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final _eventLog = EventLogService();
   late final WorkflowEngine _workflowEngine;
+  late final AutopilotManager _autopilot;
+
+  /// Whether the right-docked Autopilot panel is visible. Persisted.
+  bool _autopilotVisible = false;
+  double _autopilotPanelWidth = AutopilotPanel.defaultWidth;
+  bool _autopilotPanelDragging = false;
+  bool _autopilotPanelHovering = false;
+
+  /// Polls ProcessMonitorService for running session CPU + RSS every ~3 s.
+  Timer? _processStatTimer;
 
   @override
   void initState() {
@@ -108,7 +126,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final db = context.read<AppDatabase>();
     _sessionManager = SessionManager(db);
     _terminals = TerminalSessionsController(_sessionManager);
-    _workflowEngine = WorkflowEngine(db, _sessionManager, _terminals, _eventLog);
+    _workflowEngine = WorkflowEngine(
+      db,
+      _sessionManager,
+      _terminals,
+      _eventLog,
+    );
+    _autopilot = AutopilotManager(createEngine: _buildAutopilotEngine);
     _terminals.onMemorySynced = (sessionName, agentName) {
       _eventLog.log(
         ClusterEventKind.memorySync,
@@ -118,6 +142,9 @@ class _HomeScreenState extends State<HomeScreen> {
     };
     _pinnedIds = SettingsService.pinnedSessionIds;
     _hiddenAgentIds = SettingsService.hiddenAgentIds;
+    _autopilotVisible = SettingsService.autopilotPanelVisible;
+    _autopilotPanelWidth =
+        SettingsService.autopilotPanelWidth ?? AutopilotPanel.defaultWidth;
     _startIpcServer();
     _loadInitialData();
     _keyHandler = (event) {
@@ -215,6 +242,12 @@ class _HomeScreenState extends State<HomeScreen> {
     HardwareKeyboard.instance.addHandler(_keyHandler);
     _terminals.addListener(_updateDockBadge);
     _exitSub = _terminals.exitEvents.listen(_onSessionExited);
+    _processStatTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+      final pids = _terminals.sessionPids;
+      if (pids.isEmpty) return;
+      final stats = await ProcessMonitorService.poll(pids);
+      if (mounted) _terminals.updateProcessStats(stats);
+    });
   }
 
   void _updateDockBadge() {
@@ -224,6 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _processStatTimer?.cancel();
     _ipcSub?.cancel();
     _ipcServer.stop();
     _exitSub?.cancel();
@@ -232,6 +266,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _searchController.dispose();
     _terminals.dispose();
     _workflowEngine.dispose();
+    _autopilot.dispose();
     _eventLog.dispose();
     super.dispose();
   }
@@ -246,13 +281,15 @@ class _HomeScreenState extends State<HomeScreen> {
       _terminals.helpersScriptPath = HelpersScriptService.path;
 
       _ipcServer.onGetSessions = () => _terminals.openTerminals
-          .map((t) => IpcSessionInfo(
-                id: t.sessionId,
-                name: t.sessionName,
-                agentId: t.cli.id,
-                status: t.effectiveStatus,
-                workingDirectory: t.workingDirectory,
-              ))
+          .map(
+            (t) => IpcSessionInfo(
+              id: t.sessionId,
+              name: t.sessionName,
+              agentId: t.cli.id,
+              status: t.effectiveStatus,
+              workingDirectory: t.workingDirectory,
+            ),
+          )
           .toList();
 
       _ipcServer.onInject = (sessionId, text) async {
@@ -270,14 +307,34 @@ class _HomeScreenState extends State<HomeScreen> {
         return raw.split('\n').where((l) => l.trim().isNotEmpty).toList();
       };
 
-      _ipcServer.onSubscribeOutput =
-          (sessionId) => _terminals.outputStreamOf(sessionId);
+      _ipcServer.onSubscribeOutput = (sessionId) =>
+          _terminals.outputStreamOf(sessionId);
+
+      _ipcServer.onCreateSession =
+          ({required agentId, required input, name, workingDirectory}) async {
+            if (!mounted) return null;
+            final cli = _agentFor(agentId);
+            if (cli == null) return null;
+            final id = await _sessionManager.createSession(
+              name: name ?? '${cli.displayName} (spawned)',
+              cli: cli,
+              input: input,
+              workingDirectory: workingDirectory,
+            );
+            final session = await _sessionManager.getSession(id);
+            if (session != null && mounted) _openTerminal(session);
+            return id;
+          };
     } catch (_) {
       // IPC server is non-critical — PTYs work fine without it.
     }
   }
 
   Future<void> _onIpcEvent(IpcEvent event) async {
+    // Autopilot reacts to stop events immediately (no quiet-window wait).
+    if (event.type == IpcEventType.stop) {
+      _autopilot.notifyAgentStopped(event.sessionId);
+    }
     switch (event.type) {
       case IpcEventType.stop:
       case IpcEventType.result:
@@ -301,13 +358,14 @@ class _HomeScreenState extends State<HomeScreen> {
           await _autoDispatchTo(session, targetCli);
         }
       case IpcEventType.notify:
-        final notifySession =
-            await _sessionManager.getSession(event.sessionId);
+        final notifySession = await _sessionManager.getSession(event.sessionId);
         final notifyMsg = event.data['message'] ?? event.data['text'];
         _eventLog.log(
           ClusterEventKind.ipcNotify,
           sessionName: notifySession?.name ?? '#${event.sessionId}',
-          detail: notifyMsg is String && notifyMsg.isNotEmpty ? notifyMsg : null,
+          detail: notifyMsg is String && notifyMsg.isNotEmpty
+              ? notifyMsg
+              : null,
         );
         _showIpcToast(event);
       case IpcEventType.unknown:
@@ -334,7 +392,11 @@ class _HomeScreenState extends State<HomeScreen> {
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.hub_outlined, size: 14, color: AppColors.accent400),
+            const Icon(
+              Icons.hub_outlined,
+              size: 14,
+              color: AppColors.accent400,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
@@ -343,13 +405,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Text(
                     'IPC [$label] from $name',
-                    style: AppTypography.body.copyWith(color: AppColors.text100),
+                    style: AppTypography.body.copyWith(
+                      color: AppColors.text100,
+                    ),
                   ),
                   if (dataMessage != null)
                     Text(
                       dataMessage,
                       style: AppTypography.mono.copyWith(
-                          fontSize: 11, color: AppColors.text400),
+                        fontSize: 11,
+                        color: AppColors.text400,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -373,10 +439,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadInitialData() async {
     _lastScanTime = SettingsService.lastDetectionTime;
     // Load templates and pipeline rules alongside CLI cache for instant display
-    SessionTemplateService.load()
-        .then((t) { if (mounted) setState(() => _templates = t); });
-    PipelineRuleService.load()
-        .then((r) { if (mounted) setState(() => _pipelineRules = r); });
+    SessionTemplateService.load().then((t) {
+      if (mounted) setState(() => _templates = t);
+    });
+    PipelineRuleService.load().then((r) {
+      if (mounted) setState(() => _pipelineRules = r);
+    });
     // Load cached results for instant display
     final cached = await CliCacheService.load();
     if (cached != null && cached.isNotEmpty) {
@@ -414,10 +482,7 @@ class _HomeScreenState extends State<HomeScreen> {
         // all 12 to finish before showing detection results.
         if (!mounted) return;
         setState(() {
-          _clis = [
-            for (final c in _clis)
-              c.id == result.id ? result : c,
-          ];
+          _clis = [for (final c in _clis) c.id == result.id ? result : c];
         });
       },
     );
@@ -480,10 +545,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openAddAgent() async {
-    await AddAgentDialog.show(
-      context,
-      onAdded: (_) => _startDetection(),
-    );
+    await AddAgentDialog.show(context, onAdded: (_) => _startDetection());
   }
 
   Future<void> _removeCustomAgent(AgentCli agent) async {
@@ -546,17 +608,14 @@ class _HomeScreenState extends State<HomeScreen> {
     return _clis.firstWhere((c) => c.id == cliId, orElse: () => _clis.first);
   }
 
-  String _agentNameOf(String cliId) =>
-      _agentFor(cliId)?.displayName ?? cliId;
+  String _agentNameOf(String cliId) => _agentFor(cliId)?.displayName ?? cliId;
 
   void _openNewSession() {
     if (_clis.isEmpty) return;
     // Multi-dispatch: use all selected agents, or fall back to primary.
     final targets = _selectedAgentIds.isEmpty
         ? [_primaryAgent].whereType<AgentCli>().toList()
-        : _clis
-            .where((c) => _selectedAgentIds.contains(c.id))
-            .toList();
+        : _clis.where((c) => _selectedAgentIds.contains(c.id)).toList();
     if (targets.isEmpty) return;
     NewSessionDialog.show(
       context,
@@ -582,10 +641,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openTerminal(TaskSession session) {
     final agent = _agentFor(session.agentCliId);
     if (agent == null) return;
-    _eventLog.log(
-      ClusterEventKind.sessionStarted,
-      sessionName: session.name,
-    );
+    _eventLog.log(ClusterEventKind.sessionStarted, sessionName: session.name);
     unawaited(_openTerminalAsync(session, agent));
   }
 
@@ -629,22 +685,23 @@ class _HomeScreenState extends State<HomeScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: AppColors.bg800,
-          title: Text(AppLocalizations.of(context)!.deleteSession,
-              style: AppTypography.cardTitle),
+          title: Text(
+            AppLocalizations.of(context)!.deleteSession,
+            style: AppTypography.cardTitle,
+          ),
           content: Text(
-              AppLocalizations.of(context)!.taskStillRunningStop,
-              style: AppTypography.body),
+            AppLocalizations.of(context)!.taskStillRunningStop,
+            style: AppTypography.body,
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              style: TextButton.styleFrom(
-                  foregroundColor: AppColors.text400),
+              style: TextButton.styleFrom(foregroundColor: AppColors.text400),
               child: Text(AppLocalizations.of(context)!.keepRunning),
             ),
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              style: TextButton.styleFrom(
-                  foregroundColor: AppColors.red400),
+              style: TextButton.styleFrom(foregroundColor: AppColors.red400),
               child: Text(AppLocalizations.of(context)!.stopAndClose),
             ),
           ],
@@ -752,6 +809,195 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _openLoopTasks() {
+    if (!mounted) return;
+    LoopTaskPanel.show(
+      context,
+      agents: _clis,
+      initialWorkingDirectory: _terminals.active?.workingDirectory,
+      onRun: _runLoopTask,
+    );
+  }
+
+  /// Build the autopilot's LLM from persisted settings. Rebuilt whenever the
+  /// user saves new connection settings in the panel.
+  AutopilotLlm _buildAutopilotLlm() => OpenAiCompatLlm(
+    AutopilotLlmConfig(
+      baseUrl: SettingsService.autopilotBaseUrl,
+      apiKey: SettingsService.autopilotApiKey,
+      model: SettingsService.autopilotModel,
+    ),
+    planPrompt: SettingsService.autopilotPlanPrompt,
+    decidePrompt: SettingsService.autopilotDecidePrompt,
+  );
+
+  AutopilotEngine _buildAutopilotEngine() =>
+      AutopilotEngine(
+          llm: _buildAutopilotLlm(),
+          createSession:
+              ({
+                required agentId,
+                required input,
+                required name,
+                workingDirectory,
+              }) async {
+                final cli = _agentFor(agentId);
+                if (cli == null || !mounted) return null;
+                final id = await _sessionManager.createSession(
+                  name: name,
+                  cli: cli,
+                  input: input,
+                  workingDirectory: workingDirectory,
+                );
+                final session = await _sessionManager.getSession(id);
+                if (session != null && mounted) {
+                  _eventLog.log(
+                    ClusterEventKind.sessionStarted,
+                    sessionName: session.name,
+                  );
+                  await _openTerminalAsync(session, cli);
+                }
+                return id;
+              },
+          injectInput: (sessionId, text) =>
+              _terminals.submitToSession(sessionId, text) == 1,
+          sendKeys: (sessionId, raw) =>
+              _terminals.sendRawToSession(sessionId, raw),
+          peekOutput: (sessionId, maxLines) {
+            final snapshot = _terminals.getAgentContext(
+              sessionId,
+              maxLines: maxLines,
+            );
+            return snapshot.isEmpty ? null : snapshot;
+          },
+          subscribeOutput: (sessionId) => _terminals.outputStreamOf(sessionId),
+          sessionStatus: (sessionId) => _terminals.statusOf(sessionId),
+          persistRunRecord: SettingsService.upsertAutopilotRunRecord,
+        )
+        ..quietSeconds = SettingsService.autopilotQuietSeconds
+        ..maxIterations = SettingsService.autopilotMaxIterations
+        ..outputTailLines = SettingsService.autopilotOutputTailLines;
+
+  /// Focus a session's terminal, opening (reopening) it first when needed.
+  Future<void> _showSession(int sessionId) async {
+    if (_terminals.isOpen(sessionId)) {
+      _terminals.setActive(sessionId);
+      return;
+    }
+    final session = await _sessionManager.getSession(sessionId);
+    if (session != null && mounted) _openTerminal(session);
+  }
+
+  /// Reopen a (history) session's terminal and immediately run the agent's
+  /// `/resume` command, auto-selecting the first (most recent) entry in the
+  /// resume picker. CodeWhale needs an extra Enter to confirm the selection.
+  Future<void> _resumeSessionInTerminal(
+    int sessionId, {
+    String? agentId,
+  }) async {
+    await _showSession(sessionId);
+    // Wait for the PTY to spawn (open()/_launch is async).
+    final ready = await _waitForTerminalRunning(sessionId);
+    if (!ready || !mounted) return;
+    // Let the CLI finish booting its TUI before typing the command.
+    await Future<void>.delayed(const Duration(milliseconds: 1400));
+    if (!mounted || _terminals.sendToSession(sessionId, '/resume') == 0) return;
+    // Wait for the resume picker to render, then press Enter to accept the
+    // pre-highlighted first entry.
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    _terminals.terminalOf(sessionId)?.sendText('\r');
+    // CodeWhale's /resume flow needs an extra Enter to confirm.
+    if (agentId == 'codewhale') {
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+      _terminals.terminalOf(sessionId)?.sendText('\r');
+    }
+  }
+
+  /// Resume a finished Autopilot run from its history record: reopen the
+  /// terminal and `/resume` the agent, then re-engage the Autopilot loop so the
+  /// LLM plans the next step from the restored conversation history.
+  Future<void> _resumeAutopilotRun(AutopilotRunRecord record) async {
+    final sessionId = record.sessionId;
+    if (sessionId == null) return;
+    await _resumeSessionInTerminal(sessionId, agentId: record.agentId);
+    if (!mounted) return;
+    // Give the restored history a moment to land in the terminal buffer.
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    if (!mounted) return;
+    await _autopilot.resumeRun(record: record);
+  }
+
+  /// Poll until the session's PTY is running, up to [timeout]. Returns false if
+  /// it never starts (e.g. binary missing).
+  Future<bool> _waitForTerminalRunning(
+    int sessionId, {
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (_terminals.terminalOf(sessionId)?.running == true) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      if (!mounted) return false;
+    }
+    return _terminals.terminalOf(sessionId)?.running == true;
+  }
+
+  /// Toggle the right-docked Autopilot panel (sidebar | terminal | autopilot).
+  void _openAutopilot() => _setAutopilotVisible(!_autopilotVisible);
+
+  void _setAutopilotVisible(bool visible) {
+    if (!mounted) return;
+    setState(() => _autopilotVisible = visible);
+    SettingsService.setAutopilotPanelVisible(visible);
+  }
+
+  double _clampAutopilotPanelWidth(double width, double available) {
+    final dynamicMax = available.isFinite
+        ? (available * 0.7).clamp(
+            AutopilotPanel.minWidth,
+            AutopilotPanel.maxWidth,
+          )
+        : AutopilotPanel.maxWidth;
+    return width.clamp(AutopilotPanel.minWidth, dynamicMax);
+  }
+
+  void _resizeAutopilotPanel(DragUpdateDetails details, double available) {
+    setState(() {
+      _autopilotPanelWidth = _clampAutopilotPanelWidth(
+        _autopilotPanelWidth - details.delta.dx,
+        available,
+      );
+    });
+  }
+
+  void _finishAutopilotPanelResize() {
+    setState(() => _autopilotPanelDragging = false);
+    SettingsService.setAutopilotPanelWidth(_autopilotPanelWidth);
+  }
+
+  Future<void> _runLoopTask(LoopTask task) async {
+    if (!mounted) return;
+    final cli = _agentFor(task.agentId);
+    if (cli == null) return;
+    for (var i = 0; i < task.loopCount; i++) {
+      final id = await _sessionManager.createSession(
+        name: '${task.name} #${i + 1}',
+        cli: cli,
+        input: task.prompt,
+        workingDirectory: task.workingDirectory?.isEmpty == true
+            ? null
+            : task.workingDirectory,
+      );
+      final session = await _sessionManager.getSession(id);
+      if (session != null && mounted) _openTerminal(session);
+    }
+    _eventLog.log(
+      ClusterEventKind.ipcNotify,
+      sessionName: task.name,
+      detail: '×${task.loopCount} launched',
+    );
+  }
+
   /// Opens the skill manager, scoped to the active terminal's project dir (if
   /// any) so project-level skills can be managed alongside global ones.
   void _openSkills() {
@@ -778,17 +1024,17 @@ class _HomeScreenState extends State<HomeScreen> {
         context: context,
         barrierColor: AppColors.black60,
         barrierDismissible: false,
-        builder: (_) => WorkflowRunDialog(
-          engine: _workflowEngine,
-          definition: definition,
-        ),
+        builder: (_) =>
+            WorkflowRunDialog(engine: _workflowEngine, definition: definition),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Workflow error: $e',
-              style: AppTypography.body.copyWith(color: AppColors.text100)),
+          content: Text(
+            'Workflow error: $e',
+            style: AppTypography.body.copyWith(color: AppColors.text100),
+          ),
           backgroundColor: AppColors.bg800,
           behavior: SnackBarBehavior.floating,
         ),
@@ -813,8 +1059,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _launchTemplate(SessionTemplate template) {
     final cli = _clis.firstWhere(
       (c) => c.id == template.agentId,
-      orElse: () => _clis.firstWhere((c) => c.detected,
-          orElse: () => _clis.first),
+      orElse: () =>
+          _clis.firstWhere((c) => c.detected, orElse: () => _clis.first),
     );
     NewSessionDialog.show(
       context,
@@ -848,13 +1094,17 @@ class _HomeScreenState extends State<HomeScreen> {
           runningAgentCount: _terminals.runningTerminals.length,
           templates: _templates,
           onLaunchTemplate: _launchTemplate,
-          onManageTemplates: _templates.isNotEmpty ? _openTemplateManager : null,
+          onManageTemplates: _templates.isNotEmpty
+              ? _openTemplateManager
+              : null,
           onManagePipelineRules: _openPipelineRules,
           onOpenDashboard: _openLiveDashboard,
           onOpenEventLog: () =>
               EventLogPanel.show(context, logService: _eventLog),
           onOpenWorkflows: _openWorkflowTemplates,
           onOpenSkills: _openSkills,
+          onOpenLoopTasks: _openLoopTasks,
+          onOpenAutopilot: _openAutopilot,
         ),
       );
     });
@@ -896,8 +1146,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final sameCli = _clis
         .where((c) => c.id == source.agentCliId && c.detected)
         .firstOrNull;
-    final target = sameCli ??
-        _clis.where((c) => c.detected).firstOrNull;
+    final target = sameCli ?? _clis.where((c) => c.detected).firstOrNull;
     if (target == null || !mounted) return;
 
     await NewSessionDialog.show(
@@ -930,11 +1179,16 @@ class _HomeScreenState extends State<HomeScreen> {
     final active = _terminals.active;
     if (active == null || !active.running) return;
     BroadcastDialog.showForSession(
-        context, _terminals, active.sessionId, active.sessionName);
+      context,
+      _terminals,
+      active.sessionId,
+      active.sessionName,
+    );
   }
 
   Future<void> _cloneSession(TaskSession source) async {
-    final agent = _agentFor(source.agentCliId) ??
+    final agent =
+        _agentFor(source.agentCliId) ??
         _clis.where((c) => c.detected).firstOrNull;
     if (agent == null || !mounted) return;
     await NewSessionDialog.show(
@@ -1006,8 +1260,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   /// Called when any PTY exits. Fires the auto-relay if one was configured.
-  Future<void> _onSessionExited(
-      ({int sessionId, int exitCode}) event) async {
+  Future<void> _onSessionExited(({int sessionId, int exitCode}) event) async {
     final targetCli = _autoRelayMap.remove(event.sessionId);
     if (mounted) setState(() {});
     final session = await _sessionManager.getSession(event.sessionId);
@@ -1024,8 +1277,8 @@ class _HomeScreenState extends State<HomeScreen> {
       success
           ? ClusterEventKind.sessionCompleted
           : (event.exitCode == -1
-              ? ClusterEventKind.sessionCancelled
-              : ClusterEventKind.sessionFailed),
+                ? ClusterEventKind.sessionCancelled
+                : ClusterEventKind.sessionFailed),
       sessionName: session.name,
       detail: success ? null : 'exit ${event.exitCode}',
     );
@@ -1067,11 +1320,13 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!watchdogRetried) {
       final agentName =
           _agentFor(session.agentCliId)?.displayName ?? session.agentCliId;
-      unawaited(NotificationService.taskFinished(
-        taskName: session.name,
-        agentName: agentName,
-        status: success ? 'completed' : 'failed',
-      ));
+      unawaited(
+        NotificationService.taskFinished(
+          taskName: session.name,
+          agentName: agentName,
+          status: success ? 'completed' : 'failed',
+        ),
+      );
     }
   }
 
@@ -1079,9 +1334,7 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Returns true when a retry was actually launched, false otherwise.
   Future<bool> _maybeWatchdogRetry(TaskSession session) async {
     final minRun = SettingsService.watchdogMinRunSeconds;
-    final ranFor = session.durationMs != null
-        ? session.durationMs! ~/ 1000
-        : 0;
+    final ranFor = session.durationMs != null ? session.durationMs! ~/ 1000 : 0;
     if (ranFor < minRun) return false; // crashed too fast — don't retry
 
     final count = (_retryCount[session.id] ?? 0) + 1;
@@ -1095,26 +1348,34 @@ class _HomeScreenState extends State<HomeScreen> {
       // Notify: watchdog gave up — user needs to know even when backgrounded.
       final agentName =
           _agentFor(session.agentCliId)?.displayName ?? session.agentCliId;
-      unawaited(NotificationService.taskFinished(
-        taskName: session.name,
-        agentName: agentName,
-        status: 'failed',
-      ));
+      unawaited(
+        NotificationService.taskFinished(
+          taskName: session.name,
+          agentName: agentName,
+          status: 'failed',
+        ),
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Row(children: [
-              const Icon(Icons.warning_amber_outlined,
-                  size: 14, color: AppColors.labelYellow),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Watchdog: "${session.name}" exhausted retries.',
-                  style:
-                      AppTypography.body.copyWith(color: AppColors.text100),
+            content: Row(
+              children: [
+                const Icon(
+                  Icons.warning_amber_outlined,
+                  size: 14,
+                  color: AppColors.labelYellow,
                 ),
-              ),
-            ]),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Watchdog: "${session.name}" exhausted retries.',
+                    style: AppTypography.body.copyWith(
+                      color: AppColors.text100,
+                    ),
+                  ),
+                ),
+              ],
+            ),
             duration: const Duration(seconds: 5),
             backgroundColor: AppColors.bg800,
             shape: RoundedRectangleBorder(
@@ -1156,17 +1417,18 @@ class _HomeScreenState extends State<HomeScreen> {
       _openTerminal(retrySession);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Row(children: [
-            const Icon(Icons.refresh, size: 14, color: AppColors.accent400),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Watchdog: retrying "${session.name}" ($count/${SettingsService.watchdogMaxRetries})',
-                style:
-                    AppTypography.body.copyWith(color: AppColors.text100),
+          content: Row(
+            children: [
+              const Icon(Icons.refresh, size: 14, color: AppColors.accent400),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Watchdog: retrying "${session.name}" ($count/${SettingsService.watchdogMaxRetries})',
+                  style: AppTypography.body.copyWith(color: AppColors.text100),
+                ),
               ),
-            ),
-          ]),
+            ],
+          ),
           duration: const Duration(seconds: 4),
           backgroundColor: AppColors.bg800,
           shape: RoundedRectangleBorder(
@@ -1299,31 +1561,33 @@ class _HomeScreenState extends State<HomeScreen> {
                 EventLogPanel.show(context, logService: _eventLog),
             eventLogErrorCount: _eventLog.errorCount,
             taskPanel: TaskPanel(
-          sessionsStream: _sessionManager.watchSessions(),
-          terminals: _terminals,
-          searchQuery: _searchController.text,
-          agents: _clis,
-          selectedAgentIds: _selectedAgentIds,
-          onToggleAgent: _toggleAgent,
-          onClearAgents: () => setState(_selectedAgentIds.clear),
-          agentNameOf: _agentNameOf,
-          onOpen: _openTerminal,
-          onDelete: _confirmDeleteSession,
-          onRename: _renameSession,
-          onDispatchTo: _dispatchSessionTo,
-          onDispatchToAll: _dispatchSessionToAll,
-          onClone: _cloneSession,
-          onUpdateNotes: _updateSessionNotes,
-          onUpdateColorLabel: _updateSessionColorLabel,
-          onContinueHere: _continueInProject,
-          onInjectMessage: _injectToSession,
-          onClearFinished: _clearFinishedSessions,
-          onNewTask: _openNewSession,
-          pinnedIds: _pinnedIds,
-          onTogglePin: _togglePin,
-          chainTargetOf: (id) => _autoRelayMap[id],
-          onChainTo: _setAutoRelay,
-        ),
+              sessionsStream: _sessionManager.watchSessions(),
+              terminals: _terminals,
+              searchQuery: _searchController.text,
+              agents: _clis,
+              selectedAgentIds: _selectedAgentIds,
+              onToggleAgent: _toggleAgent,
+              onClearAgents: () => setState(_selectedAgentIds.clear),
+              agentNameOf: _agentNameOf,
+              onOpen: _openTerminal,
+              onDelete: _confirmDeleteSession,
+              onRename: _renameSession,
+              onDispatchTo: _dispatchSessionTo,
+              onDispatchToAll: _dispatchSessionToAll,
+              onClone: _cloneSession,
+              onUpdateNotes: _updateSessionNotes,
+              onUpdateColorLabel: _updateSessionColorLabel,
+              onContinueHere: _continueInProject,
+              onInjectMessage: _injectToSession,
+              onClearFinished: _clearFinishedSessions,
+              onNewTask: _openNewSession,
+              pinnedIds: _pinnedIds,
+              onTogglePin: _togglePin,
+              chainTargetOf: (id) => _autoRelayMap[id],
+              onChainTo: _setAutoRelay,
+              onOpenLoopTasks: _openLoopTasks,
+              onOpenAutopilot: _openAutopilot,
+            ),
           );
         },
       ),
@@ -1356,12 +1620,15 @@ class _HomeScreenState extends State<HomeScreen> {
                         cursor: SystemMouseCursors.click,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.emerald500.withAlpha(26),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                                color: AppColors.emerald500.withAlpha(77)),
+                              color: AppColors.emerald500.withAlpha(77),
+                            ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -1376,8 +1643,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                AppLocalizations.of(context)!
-                                    .runningCount(running),
+                                AppLocalizations.of(
+                                  context,
+                                )!.runningCount(running),
                                 style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
@@ -1385,8 +1653,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              const Icon(Icons.grid_view_outlined,
-                                  size: 12, color: AppColors.emerald500),
+                              const Icon(
+                                Icons.grid_view_outlined,
+                                size: 12,
+                                color: AppColors.emerald500,
+                              ),
                             ],
                           ),
                         ),
@@ -1399,9 +1670,66 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      body: TerminalPane(
-        terminals: _terminals,
-        onFollowUp: _openFollowUp,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final autopilotWidth = _clampAutopilotPanelWidth(
+            _autopilotPanelWidth,
+            constraints.maxWidth,
+          );
+          return Row(
+            children: [
+              Expanded(
+                child: TerminalPane(
+                  terminals: _terminals,
+                  onFollowUp: _openFollowUp,
+                ),
+              ),
+              if (_autopilotVisible) ...[
+                MouseRegion(
+                  cursor: SystemMouseCursors.resizeColumn,
+                  onEnter: (_) =>
+                      setState(() => _autopilotPanelHovering = true),
+                  onExit: (_) =>
+                      setState(() => _autopilotPanelHovering = false),
+                  child: GestureDetector(
+                    key: AutopilotPanel.dividerKey,
+                    behavior: HitTestBehavior.translucent,
+                    onHorizontalDragStart: (_) =>
+                        setState(() => _autopilotPanelDragging = true),
+                    onHorizontalDragUpdate: (details) =>
+                        _resizeAutopilotPanel(details, constraints.maxWidth),
+                    onHorizontalDragEnd: (_) => _finishAutopilotPanelResize(),
+                    onHorizontalDragCancel: _finishAutopilotPanelResize,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 120),
+                      width: 6,
+                      color: _autopilotPanelDragging
+                          ? AppColors.accent30
+                          : _autopilotPanelHovering
+                          ? AppColors.accent10
+                          : Colors.transparent,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: autopilotWidth,
+                  child: AutopilotPanel(
+                    manager: _autopilot,
+                    agents: _clis,
+                    initialWorkingDirectory:
+                        _terminals.active?.workingDirectory,
+                    onConfigChanged: () {},
+                    onClose: () => _setAutopilotVisible(false),
+                    onShowSession: (sessionId) =>
+                        unawaited(_showSession(sessionId)),
+                    onResumeRun: (record) =>
+                        unawaited(_resumeAutopilotRun(record)),
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }
