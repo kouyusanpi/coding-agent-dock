@@ -1,0 +1,960 @@
+{
+  "@@locale": "en",
+
+  "@_APP_CHROME": {
+    "description": "Application title and chrome strings"
+  },
+  "appTitle": "Agent CLI Manager",
+  "@appTitle": {
+    "description": "The title of the application shown in the app bar and window chrome"
+  },
+  "agentOSCli": "AgentDock",
+  "@agentOSCli": {
+    "description": "Brand name shown in the sidebar header"
+  },
+
+  "@_SIDEBAR": {
+    "description": "Sidebar navigation strings"
+  },
+  "localEnvironments": "Local Environments",
+  "@localEnvironments": {
+    "description": "Sidebar section heading for locally detected CLI environments"
+  },
+  "daemonActive": "Daemon Active",
+  "@daemonActive": {
+    "description": "Status badge indicating the background daemon is running"
+  },
+  "missing": "Missing",
+  "@missing": {
+    "description": "Status badge shown when a CLI agent is not installed"
+  },
+
+  "@_DETECTION": {
+    "description": "Agent detection and scanning strings"
+  },
+  "detectingInstalled": "Detecting Installed Agents",
+  "@detectingInstalled": {
+    "description": "Label shown while the app is detecting which CLIs are installed"
+  },
+  "scanningEnvironments": "Scanning local environments...",
+  "@scanningEnvironments": {
+    "description": "Status message displayed during an active scan for CLI environments"
+  },
+  "scan": "Scan",
+  "@scan": {
+    "description": "Button label to trigger a scan for installed CLI agents"
+  },
+  "rescan": "Rescan",
+  "@rescan": {
+    "description": "Button label to re-run the scan for installed CLI agents"
+  },
+  "clearCache": "Clear Cache",
+  "@clearCache": {
+    "description": "Button label to clear the local detection cache"
+  },
+
+  "@_SESSION_LIST": {
+    "description": "Session list and browsing strings"
+  },
+  "sessions": "Sessions",
+  "@sessions": {
+    "description": "Section heading for the list of sessions"
+  },
+  "noSessionsYet": "No sessions yet",
+  "@noSessionsYet": {
+    "description": "Empty-state message when there are no sessions"
+  },
+  "createSessionToStart": "Create a new session to get started.",
+  "@createSessionToStart": {
+    "description": "Empty-state hint prompting the user to create their first session"
+  },
+  "searchResults": "Search Results",
+  "@searchResults": {
+    "description": "Heading shown above filtered search results"
+  },
+  "showingAllEnvironments": "Showing matches across all environments.",
+  "@showingAllEnvironments": {
+    "description": "Subtitle explaining that search results span all environments"
+  },
+  "selectPastSession": "Select a past session or create a new one.",
+  "@selectPastSession": {
+    "description": "Prompt shown when no session is currently selected"
+  },
+  "initializeNewSession": "Initialize New {agentName} Session",
+  "@initializeNewSession": {
+    "description": "Heading for the new-session dialog that includes the agent name",
+    "placeholders": {
+      "agentName": {
+        "type": "String",
+        "example": "Claude Code"
+      }
+    }
+  },
+
+  "@_SESSION_STATUS": {
+    "description": "Session status labels"
+  },
+  "statusRunning": "Running",
+  "@statusRunning": {
+    "description": "Label for a session that is currently running"
+  },
+  "statusCompleted": "Completed",
+  "@statusCompleted": {
+    "description": "Label for a session that finished successfully"
+  },
+  "statusFailed": "Failed",
+  "@statusFailed": {
+    "description": "Label for a session that finished with an error"
+  },
+  "statusCancelled": "Cancelled",
+  "@statusCancelled": {
+    "description": "Label for a session that was cancelled before completion"
+  },
+  "statusLaunched": "Launched",
+  "@statusLaunched": {
+    "description": "Label for a session that was launched in the local Terminal"
+  },
+  "statusCreated": "Created",
+  "@statusCreated": {
+    "description": "Label for a session that was created but not yet launched"
+  },
+
+  "@_TIME_RELATIVE": {
+    "description": "Relative time display strings"
+  },
+  "justNow": "just now",
+  "@justNow": {
+    "description": "Timestamp label for events that occurred within the last minute"
+  },
+  "minutesAgo": "{count}m ago",
+  "@minutesAgo": {
+    "description": "Relative timestamp for N minutes ago",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "hoursAgo": "{count}h ago",
+  "@hoursAgo": {
+    "description": "Relative timestamp for N hours ago",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "daysAgo": "{count}d ago",
+  "@daysAgo": {
+    "description": "Relative timestamp for N days ago",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+
+  "@_NEW_SESSION_DIALOG": {
+    "description": "New session creation dialog strings"
+  },
+  "newSessionTitle": "Initialize New Session",
+  "@newSessionTitle": {
+    "description": "Dialog title for creating a new session"
+  },
+  "workspacePath": "Workspace Path",
+  "@workspacePath": {
+    "description": "Label for the workspace path input field"
+  },
+  "workspaceHint": "~/projects/my-project",
+  "@workspaceHint": {
+    "description": "Placeholder hint for the workspace path input field"
+  },
+  "sessionName": "Session Name",
+  "@sessionName": {
+    "description": "Label for the session name input field"
+  },
+  "sessionNameHint": "Refactor API router...",
+  "@sessionNameHint": {
+    "description": "Placeholder hint for the session name input field"
+  },
+  "promptInput": "Task Prompt",
+  "@promptInput": {
+    "description": "Label for the task prompt input field"
+  },
+  "promptHint": "Describe what you want the agent to do...",
+  "@promptHint": {
+    "description": "Placeholder hint for the task prompt input field"
+  },
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Button label to dismiss the dialog without creating a session"
+  },
+  "createAndRun": "Create & Run",
+  "@createAndRun": {
+    "description": "Button label to create the new session and immediately start the agent"
+  },
+  "createFailed": "Failed to create session: {error}",
+  "@createFailed": {
+    "description": "Error message shown when session creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Permission denied"
+      }
+    }
+  },
+
+  "@_SESSION_CARD": {
+    "description": "Session card display strings"
+  },
+  "workspace": "Workspace",
+  "@workspace": {
+    "description": "Label prefix for the workspace path shown on a session card"
+  },
+  "deleteSession": "Delete Session",
+  "@deleteSession": {
+    "description": "Tooltip and dialog title for deleting a session"
+  },
+  "deleteSessionConfirm": "Delete session \"{name}\"? This cannot be undone.",
+  "@deleteSessionConfirm": {
+    "description": "Confirmation message shown before deleting a session",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Refactor API router"
+      }
+    }
+  },
+  "delete": "Delete",
+  "@delete": {
+    "description": "Button label confirming a delete action"
+  },
+
+  "@_TERMINAL": {
+    "description": "In-app terminal screen strings"
+  },
+  "processExited": "Process exited (code {code}). The conversation was saved and can be resumed.",
+  "@processExited": {
+    "description": "Banner shown when the terminal process exits",
+    "placeholders": {
+      "code": {
+        "type": "int",
+        "example": "0"
+      }
+    }
+  },
+  "relaunchSession": "Resume Session",
+  "@relaunchSession": {
+    "description": "Button to relaunch the CLI resuming the saved conversation"
+  },
+  "tasksSection": "TASKS",
+  "@tasksSection": {
+    "description": "Sidebar section header for the task panel"
+  },
+  "newTask": "New Task",
+  "@newTask": {
+    "description": "Button creating a new task session"
+  },
+  "runningCount": "{count} running",
+  "@runningCount": {
+    "description": "Badge showing how many task terminals are running",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "noOpenTerminal": "Select a task on the left to open its terminal",
+  "@noOpenTerminal": {
+    "description": "Empty state of the terminal pane when no task is open"
+  },
+  "closeTerminal": "Close terminal",
+  "@closeTerminal": {
+    "description": "Tooltip on the terminal tab close button"
+  },
+  "searchTasks": "Search tasks...",
+  "@searchTasks": {
+    "description": "Placeholder of the inline task search field in the task panel"
+  },
+  "allAgents": "All",
+  "@allAgents": {
+    "description": "Agent filter chip that clears the selection (show all agents)"
+  },
+
+  "@_SEARCH": {
+    "description": "Search-related strings"
+  },
+  "searchHint": "Search sessions, tags, or workspaces...",
+  "@searchHint": {
+    "description": "Placeholder text in the search input field"
+  },
+  "sessionSearchComing": "Session search coming soon",
+  "@sessionSearchComing": {
+    "description": "Placeholder message shown when search is not yet implemented"
+  },
+  "tryDifferentSearch": "Try a different search term or check local CLI paths.",
+  "@tryDifferentSearch": {
+    "description": "Hint shown when a search returns no results"
+  },
+
+  "@_CUSTOM_AGENT": {
+    "description": "Add/remove custom agent CLI strings"
+  },
+  "addCustomAgent": "Add Custom Agent",
+  "@addCustomAgent": {
+    "description": "Title of the add-custom-agent dialog and tooltip of the + button"
+  },
+  "displayNameLabel": "Display Name",
+  "@displayNameLabel": {
+    "description": "Label of the display-name field in the add-agent dialog"
+  },
+  "displayNameHint": "e.g. My Agent CLI",
+  "@displayNameHint": {
+    "description": "Hint of the display-name field in the add-agent dialog"
+  },
+  "binaryLabel": "Binary (command name or full path)",
+  "@binaryLabel": {
+    "description": "Label of the binary field in the add-agent dialog"
+  },
+  "binaryHint": "e.g. myagent or /usr/local/bin/myagent",
+  "@binaryHint": {
+    "description": "Hint of the binary field in the add-agent dialog"
+  },
+  "browse": "Browse…",
+  "@browse": {
+    "description": "Tooltip of the file-picker button"
+  },
+  "versionFlagLabel": "Version Flag",
+  "@versionFlagLabel": {
+    "description": "Label of the version-flag field in the add-agent dialog"
+  },
+  "addAgentButton": "Add Agent",
+  "@addAgentButton": {
+    "description": "Confirm button of the add-agent dialog"
+  },
+  "nameAndBinaryRequired": "Name and binary are required",
+  "@nameAndBinaryRequired": {
+    "description": "Validation error in the add-agent dialog"
+  },
+  "agentAlreadyExists": "An agent with this binary already exists",
+  "@agentAlreadyExists": {
+    "description": "Duplicate-binary error in the add-agent dialog"
+  },
+  "removeCustomAgent": "Remove custom agent",
+  "@removeCustomAgent": {
+    "description": "Context-menu item to delete a user-added agent"
+  },
+  "hideAgent": "Hide from list",
+  "@hideAgent": {
+    "description": "Context-menu item to hide a built-in agent from the sidebar"
+  },
+  "hiddenAgentsCount": "{count} hidden",
+  "@hiddenAgentsCount": {
+    "description": "Footer label showing how many agents are hidden",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "showAllAgents": "Show all",
+  "@showAllAgents": {
+    "description": "Action to restore all hidden agents to the sidebar"
+  },
+  "installAgentTitle": "Install {name}",
+  "@installAgentTitle": {
+    "description": "Title of the install-hint dialog",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Claude Code"
+      }
+    }
+  },
+  "agentNotFound": "{name} was not found on your system.",
+  "@agentNotFound": {
+    "description": "Body of the install-hint dialog",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Claude Code"
+      }
+    }
+  },
+  "installWith": "Install with:",
+  "@installWith": {
+    "description": "Label above the install command in the install-hint dialog"
+  },
+  "afterInstallRescan": "After installing, click the ↻ button to rescan.",
+  "@afterInstallRescan": {
+    "description": "Footer hint of the install-hint dialog"
+  },
+  "close": "Close",
+  "@close": {
+    "description": "Generic close button"
+  },
+
+  "@_TERMINAL_TOOLBAR": {
+    "description": "Terminal pane toolbar strings"
+  },
+  "broadcastTooltip": "Broadcast a message to all running agents",
+  "@broadcastTooltip": {
+    "description": "Tooltip of the broadcast (megaphone) toolbar button"
+  },
+  "closeBroadcast": "Close broadcast",
+  "@closeBroadcast": {
+    "description": "Tooltip of the broadcast button when the bar is open"
+  },
+  "broadcastHint": "Send to all running agents…",
+  "@broadcastHint": {
+    "description": "Placeholder of the broadcast input field"
+  },
+  "broadcastTargets": "→ {count} agents",
+  "@broadcastTargets": {
+    "description": "Badge showing how many agents will receive the broadcast",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "attachFilesTooltip": "Attach files (or drag & drop / Cmd+V an image)",
+  "@attachFilesTooltip": {
+    "description": "Tooltip of the attach-files toolbar button"
+  },
+  "splitView": "Split view",
+  "@splitView": {
+    "description": "Tooltip of the split-view toolbar button"
+  },
+  "exitSplitView": "Exit split view",
+  "@exitSplitView": {
+    "description": "Tooltip of the split-view button when split is active"
+  },
+
+  "@_TASK_CONTEXT_MENU": {
+    "description": "Task list context-menu strings"
+  },
+  "newTaskHere": "New task here",
+  "@newTaskHere": {
+    "description": "Context-menu item: open a new task in the same working directory"
+  },
+  "newTaskSameFolder": "New task in same folder",
+  "@newTaskSameFolder": {
+    "description": "Tooltip of the ↪ hover button on a task item"
+  },
+  "sendToAgent": "Send to agent",
+  "@sendToAgent": {
+    "description": "Context-menu section header for dispatching to another agent"
+  },
+  "openInFinder": "Open in Finder",
+  "@openInFinder": {
+    "description": "Context-menu item to reveal the working directory"
+  },
+  "copyPrompt": "Copy prompt",
+  "@copyPrompt": {
+    "description": "Context-menu item to copy the task prompt"
+  },
+  "copyOutput": "Copy output",
+  "@copyOutput": {
+    "description": "Context-menu item to copy the captured session output"
+  },
+  "tapToCopyOutput": "Tap to copy full output",
+  "@tapToCopyOutput": {
+    "description": "Tooltip of the output snippet in the task detail panel"
+  },
+
+  "@_ERRORS": {
+    "description": "Error message strings"
+  },
+  "cliNotInstalled": "CLI {name} is not installed or not found on this system. Run Scan to detect available CLIs.",
+  "@cliNotInstalled": {
+    "description": "Error shown when a required CLI agent is not installed",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Claude Code"
+      }
+    }
+  },
+
+  "@_NEW_SESSION_OPTIONS": {
+    "description": "New-session dialog: Claude options panel"
+  },
+  "agentsLabel": "Agents",
+  "@agentsLabel": {"description": "Field label when multi-dispatching to several agents"},
+  "dispatchingToAgents": "Dispatching to {count} agents simultaneously",
+  "@dispatchingToAgents": {
+    "description": "Header subtitle in multi-dispatch mode",
+    "placeholders": {"count": {"type": "int", "example": "3"}}
+  },
+  "dispatchToAgents": "Dispatch to {count} Agents",
+  "@dispatchToAgents": {
+    "description": "Primary button in multi-dispatch mode",
+    "placeholders": {"count": {"type": "int", "example": "3"}}
+  },
+  "resetToAutoName": "Reset to auto-name",
+  "@resetToAutoName": {"description": "Tooltip on the clear button of the session name field"},
+  "claudeOptions": "Claude Options",
+  "@claudeOptions": {"description": "Collapsible panel title for Claude CLI options"},
+  "modelLabel": "Model",
+  "@modelLabel": {"description": "Label of the model picker"},
+  "thinkingLabel": "Thinking",
+  "@thinkingLabel": {"description": "Label of the thinking-effort picker"},
+  "permissionsLabel": "Permissions",
+  "@permissionsLabel": {"description": "Label of the permission-mode picker"},
+  "skipAllPermissions": "Skip All Permissions",
+  "@skipAllPermissions": {"description": "Switch title for --dangerously-skip-permissions"},
+  "nonInteractive": "Non-interactive",
+  "@nonInteractive": {"description": "Switch title for --print mode"},
+  "nonInteractiveDesc": "--print, output and exit",
+  "@nonInteractiveDesc": {"description": "Switch subtitle for --print mode"},
+  "quickSelect": "Quick select",
+  "@quickSelect": {"description": "Hint of the model quick-select dropdown"},
+  "typeModelName": "Or type any model API name",
+  "@typeModelName": {"description": "Hint of the free-form model name field"},
+  "modelDefaultLabel": "Default (Opus 4.8, 1M context)",
+  "@modelDefaultLabel": {"description": "Model dropdown: default option"},
+  "modelSonnetLabel": "Sonnet 4.6 — Best for everyday tasks",
+  "@modelSonnetLabel": {"description": "Model dropdown: sonnet option"},
+  "modelHaikuLabel": "Haiku 4.5 — Fastest, quick answers",
+  "@modelHaikuLabel": {"description": "Model dropdown: haiku option"},
+  "modelOpusPinned": "Opus 4.8 pinned",
+  "@modelOpusPinned": {"description": "Model dropdown: pinned opus option"},
+  "modelSonnetPinned": "Sonnet 4.6 pinned",
+  "@modelSonnetPinned": {"description": "Model dropdown: pinned sonnet option"},
+  "effortLow": "Low",
+  "@effortLow": {"description": "Thinking effort: low"},
+  "effortMedium": "Medium",
+  "@effortMedium": {"description": "Thinking effort: medium"},
+  "effortHigh": "High",
+  "@effortHigh": {"description": "Thinking effort: high"},
+  "effortXhigh": "Extra High",
+  "@effortXhigh": {"description": "Thinking effort: extra high"},
+  "effortMax": "Maximum",
+  "@effortMax": {"description": "Thinking effort: maximum"},
+  "permDefault": "Default",
+  "@permDefault": {"description": "Permission mode: default"},
+  "permAcceptEdits": "Accept Edits",
+  "@permAcceptEdits": {"description": "Permission mode: acceptEdits"},
+  "permAuto": "Auto",
+  "@permAuto": {"description": "Permission mode: auto"},
+  "permBypass": "Bypass All",
+  "@permBypass": {"description": "Permission mode: bypassPermissions"},
+  "permDontAsk": "Don't Ask",
+  "@permDontAsk": {"description": "Permission mode: dontAsk"},
+  "permPlan": "Plan Only",
+  "@permPlan": {"description": "Permission mode: plan"},
+
+  "@_COMMAND_PALETTE": {
+    "description": "Cmd+K command palette"
+  },
+  "newTaskSubtitle": "Create a new agent task",
+  "@newTaskSubtitle": {"description": "Palette action subtitle for New Task"},
+  "rescanAgents": "Rescan Agents",
+  "@rescanAgents": {"description": "Palette action to re-run CLI detection"},
+  "rescanAgentsSubtitle": "Re-detect installed CLI tools",
+  "@rescanAgentsSubtitle": {"description": "Palette action subtitle for Rescan Agents"},
+  "openSettings": "Open Settings",
+  "@openSettings": {"description": "Palette action to open the settings drawer"},
+  "openSettingsSubtitle": "Font size, notifications, CLI path",
+  "@openSettingsSubtitle": {"description": "Palette action subtitle for Open Settings"},
+  "paletteSearchHint": "Search sessions, @agent filter, or run a command…",
+  "@paletteSearchHint": {"description": "Hint of the palette search input"},
+  "noResults": "No results",
+  "@noResults": {"description": "Empty state of palette / terminal search"},
+
+  "@_SETTINGS_DRAWER": {
+    "description": "Settings drawer"
+  },
+  "settings": "Settings",
+  "@settings": {"description": "Settings drawer title"},
+  "sectionTerminal": "Terminal",
+  "@sectionTerminal": {"description": "Settings section: terminal"},
+  "sectionNotifications": "Notifications",
+  "@sectionNotifications": {"description": "Settings section: notifications"},
+  "fontSize": "Font size",
+  "@fontSize": {"description": "Terminal font size setting label"},
+  "taskCompletionAlerts": "Task completion alerts",
+  "@taskCompletionAlerts": {"description": "Notification switch title"},
+  "taskCompletionAlertsDesc": "Notify when a terminal task finishes",
+  "@taskCompletionAlertsDesc": {"description": "Notification switch subtitle"},
+  "binaryPathOverride": "Binary path override",
+  "@binaryPathOverride": {"description": "Claude CLI path setting label"},
+  "binaryPathDesc": "Leave blank to auto-detect (~/.local/bin/claude first)",
+  "@binaryPathDesc": {"description": "Claude CLI path setting subtitle"},
+
+  "@_TERMINAL_MISC": {
+    "description": "Terminal pane misc strings"
+  },
+  "taskStillRunningStop": "This task is still running. Stop it and close?",
+  "@taskStillRunningStop": {"description": "Confirm body when closing a running task tab"},
+  "taskStillRunningClose": "This task is still running. Close and stop it?",
+  "@taskStillRunningClose": {"description": "Confirm body when closing a running terminal"},
+  "keepRunning": "Keep Running",
+  "@keepRunning": {"description": "Confirm dialog: cancel closing"},
+  "stopAndClose": "Stop & Close",
+  "@stopAndClose": {"description": "Confirm dialog: stop the task and close"},
+  "cmdNHint": "Cmd+N to create a new task",
+  "@cmdNHint": {"description": "Empty terminal pane keyboard hint"},
+  "savedToDesktop": "Saved to ~/Desktop/{name}",
+  "@savedToDesktop": {
+    "description": "Snackbar after exporting terminal output",
+    "placeholders": {"name": {"type": "String", "example": "session.txt"}}
+  },
+  "exportFailed": "Export failed: {error}",
+  "@exportFailed": {
+    "description": "Snackbar when terminal export fails",
+    "placeholders": {"error": {"type": "String", "example": "permission denied"}}
+  },
+  "followUp": "Follow-up",
+  "@followUp": {"description": "Button on an exited terminal to relaunch with a follow-up prompt"},
+  "clearFinishedSessions": "Clear completed / failed sessions",
+  "@clearFinishedSessions": {"description": "Tooltip of the clear-finished button in the task panel"},
+
+  "@_ATTACHMENTS": {
+    "description": "Attachment strip above the terminal input"
+  },
+  "insertPathsTooltip": "Type all paths into the input now",
+  "@insertPathsTooltip": {"description": "Tooltip of the Insert attachments button"},
+  "terminalNotRunning": "Terminal not running",
+  "@terminalNotRunning": {"description": "Tooltip of the Insert button when the PTY has exited"},
+  "insert": "Insert",
+  "@insert": {"description": "Insert attachments button label"},
+  "clearAllAttachments": "Clear all attachments",
+  "@clearAllAttachments": {"description": "Tooltip of the clear attachments button"},
+  "previewFailed": "Preview failed: {error}",
+  "@previewFailed": {
+    "description": "Shown when an image attachment preview cannot load",
+    "placeholders": {"error": {"type": "String", "example": "file not found"}}
+  },
+  "searchInTerminal": "Search…",
+  "@searchInTerminal": {"description": "Hint of the in-terminal search field"}
+,
+  "@_SESSION_PINNING": {},
+  "pinSession": "Pin to top",
+  "@pinSession": {
+    "description": "Context menu: pin a session to the top of the list"
+  },
+  "unpinSession": "Unpin",
+  "@unpinSession": {
+    "description": "Context menu: unpin a session"
+  }
+,
+  "@_RELAY": {},
+  "relayToAll": "Relay to all agents",
+  "@relayToAll": {"description": "Context menu: relay this session output to ALL other detected agents simultaneously"},
+  "relayToAllSubtitle": "{count} other agents",
+  "@relayToAllSubtitle": {"description": "Subtitle under relay-to-all: shows how many agents will receive the task", "placeholders": {"count": {"type": "int", "example": "3"}}}
+,
+  "@_KEYBOARD_SHORTCUTS": {},
+  "agentFound": "Found",
+  "@agentFound": {"description": "Sidebar agent badge: agent binary was detected"},
+  "keyboardShortcuts": "Keyboard Shortcuts",
+  "@keyboardShortcuts": {"description": "Title of the keyboard shortcuts help dialog"},
+  "shortcutsGlobal": "Global",
+  "@shortcutsGlobal": {"description": "Shortcuts dialog section: global shortcuts"},
+  "shortcutsTabs": "Terminal Tabs",
+  "@shortcutsTabs": {"description": "Shortcuts dialog section: tab navigation"},
+  "shortcutsTerminal": "In Terminal",
+  "@shortcutsTerminal": {"description": "Shortcuts dialog section: in-terminal shortcuts"},
+  "shortcutCommandPalette": "Command Palette",
+  "@shortcutCommandPalette": {"description": "Shortcut description: open command palette"},
+  "shortcutNewTaskClipboard": "New Task from Clipboard",
+  "@shortcutNewTaskClipboard": {"description": "Shortcut description: new task from clipboard"},
+  "shortcutNextTab": "Next Tab",
+  "@shortcutNextTab": {"description": "Shortcut description: focus next terminal tab"},
+  "shortcutPrevTab": "Previous Tab",
+  "@shortcutPrevTab": {"description": "Shortcut description: focus previous terminal tab"},
+  "shortcutJumpToTab": "Jump to Tab 1–9",
+  "@shortcutJumpToTab": {"description": "Shortcut description: jump directly to terminal tab by position"},
+  "shortcutCloseTab": "Close Tab",
+  "@shortcutCloseTab": {"description": "Shortcut description: close current terminal tab"},
+  "shortcutSearch": "Search in Terminal",
+  "@shortcutSearch": {"description": "Shortcut description: open terminal search bar"},
+  "shortcutExport": "Export Terminal",
+  "@shortcutExport": {"description": "Shortcut description: export terminal output to Desktop"},
+  "shortcutShowShortcuts": "Keyboard Shortcuts",
+  "@shortcutShowShortcuts": {"description": "Shortcut description: show this shortcuts panel"}
+,
+  "@_SESSION_NOTES": {},
+  "editNote": "Edit Note",
+  "@editNote": {"description": "Context menu item to add/edit a user note on a session"},
+  "notePlaceholder": "Add a note to this session...",
+  "@notePlaceholder": {"description": "Placeholder text in the note editing dialog"},
+  "noteSaved": "Note saved",
+  "@noteSaved": {"description": "Snackbar confirmation after saving a note (unused if silent)"}
+,
+  "save": "Save",
+  "@save": {"description": "Generic save button label"}
+,
+  "exportAsMarkdown": "Export as Markdown",
+  "@exportAsMarkdown": {"description": "Context menu: export session metadata + output as a Markdown file to Desktop"}
+,
+  "@_EXPORT_MD": {},
+  "agentLabel": "Agent",
+  "@agentLabel": {"description": "Markdown export label: agent name"},
+  "statusLabel": "Status",
+  "@statusLabel": {"description": "Markdown export label: session status"},
+  "workingDirectory": "Working Directory",
+  "@workingDirectory": {"description": "Markdown export / detail panel label for the working directory"},
+  "duration": "Duration",
+  "@duration": {"description": "Markdown export label: session duration"},
+  "inputPrompt": "Task",
+  "@inputPrompt": {"description": "Markdown export section header: the input prompt/task"},
+  "notes": "Notes",
+  "@notes": {"description": "Markdown export section header: user notes"}
+,
+  "@_SORT": {},
+  "sortLabel": "Sort",
+  "@sortLabel": {"description": "Tooltip for the task panel sort button"},
+  "sortNewest": "Newest first",
+  "@sortNewest": {"description": "Sort option: newest sessions at top"},
+  "sortOldest": "Oldest first",
+  "@sortOldest": {"description": "Sort option: oldest sessions at top"},
+  "sortByName": "A → Z",
+  "@sortByName": {"description": "Sort option: alphabetical by session name"},
+  "sortByDuration": "Longest first",
+  "@sortByDuration": {"description": "Sort option: longest-duration sessions at top"}
+,
+  "@_STATS": {},
+  "statsTitle": "Session Statistics",
+  "@statsTitle": {"description": "Title of the session statistics dialog"},
+  "statsAgent": "Agent",
+  "@statsAgent": {"description": "Stats table column: agent name"},
+  "statsTotal": "Total",
+  "@statsTotal": {"description": "Stats table column: total session count"},
+  "statsDone": "Done",
+  "@statsDone": {"description": "Stats table column: completed session count"},
+  "statsFailed": "Failed",
+  "@statsFailed": {"description": "Stats table column: failed/cancelled session count"},
+  "statsAvgTime": "Avg",
+  "@statsAvgTime": {"description": "Stats table column: average session duration"},
+  "statsTotalTime": "Total compute",
+  "@statsTotalTime": {"description": "Stats footer: total compute time across all sessions"},
+  "noStatsYet": "No sessions recorded yet.",
+  "@noStatsYet": {"description": "Shown when there are no sessions to compute stats from"}
+,
+  "@_OUTPUT_VIEWER": {},
+  "tapToViewOutput": "Tap to view full output",
+  "@tapToViewOutput": {"description": "Tooltip on the output snippet in the session detail panel"},
+  "viewFullOutput": "Full Output",
+  "@viewFullOutput": {"description": "Title of the full output viewer dialog"},
+  "exitCode": "exit {code}",
+  "@exitCode": {"description": "Exit code label in the session detail panel", "placeholders": {"code": {"type": "int", "example": "0"}}}
+,
+  "retryAllFailed": "Retry failed",
+  "@retryAllFailed": {"description": "Tooltip/label for the retry-all-failed button in the task panel footer"},
+  "retrySession": "Retry this session",
+  "@retrySession": {"description": "Hover button tooltip on failed/cancelled session rows"}
+,
+  "cloneSession": "Clone Session",
+  "@cloneSession": {"description": "Context menu: clone a session with the same prompt and working directory"}
+,
+  "@_WORKSPACE_BOOKMARKS": {},
+  "addBookmark": "Save as bookmark",
+  "@addBookmark": {"description": "Tooltip on the bookmark-add button next to the workspace field"},
+  "bookmarkNameHint": "e.g. My Flutter App",
+  "@bookmarkNameHint": {"description": "Placeholder in the bookmark-name dialog"},
+  "bookmarkSaved": "Bookmark saved",
+  "@bookmarkSaved": {"description": "Snackbar shown after saving a workspace bookmark"},
+  "@_COLOR_LABELS": {},
+  "setColor": "Set color label",
+  "@setColor": {"description": "Context menu item and dialog title for setting a session color label"},
+  "clearColor": "Clear color",
+  "@clearColor": {"description": "Button in color picker to remove the color label"}
+,
+  "@_GROUP_BY_DIR": {},
+  "groupByProject": "Group by project",
+  "@groupByProject": {"description": "Tooltip for the group-by-directory toggle button in the task panel header"},
+  "groupOther": "Other",
+  "@groupOther": {"description": "Group header label for sessions with no working directory set"}
+,
+  "@_PROMPT_TEMPLATES": {},
+  "promptTemplatesTooltip": "Prompt templates",
+  "@promptTemplatesTooltip": {"description": "Tooltip of the prompt templates button in the terminal toolbar"},
+  "@_SHARED_MEMORY": {},
+  "sharedMemoryTooltip": "Shared project memory",
+  "@sharedMemoryTooltip": {"description": "Tooltip for the shared-memory button on a project group header"},
+  "sharedMemoryTitle": "Shared project memory",
+  "@sharedMemoryTitle": {"description": "Title of the shared project memory editor dialog"},
+  "sharedMemoryDescription": "Shared with every agent in this project — synced into CLAUDE.md, AGENTS.md and GEMINI.md when a session launches.",
+  "@sharedMemoryDescription": {"description": "Explanatory subtitle in the shared project memory editor dialog"},
+  "sharedMemoryPlaceholder": "Conventions, context and notes to share with every agent in this project…",
+  "@sharedMemoryPlaceholder": {"description": "Placeholder text in the shared project memory editor field"},
+  "@_BROADCAST": {},
+  "broadcastTooltip": "Broadcast to all running agents",
+  "@broadcastTooltip": {"description": "Tooltip for the broadcast button in the task panel header"},
+  "broadcastTitle": "Broadcast to {count} running agents",
+  "@broadcastTitle": {
+    "description": "Title of the broadcast dialog showing how many agents will receive the message",
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "broadcastDescription": "Sends your message directly to every running agent's stdin — all agents receive it simultaneously.",
+  "@broadcastDescription": {"description": "Explanatory subtitle in the broadcast dialog"},
+  "broadcastPlaceholder": "Type a message or prompt to broadcast to all running agents…",
+  "@broadcastPlaceholder": {"description": "Placeholder text in the broadcast message input field"},
+  "broadcastSend": "Send",
+  "@broadcastSend": {"description": "Label for the send button in the broadcast dialog"},
+  "@_INJECT_MESSAGE": {},
+  "injectMessageTooltip": "Send to this agent",
+  "@injectMessageTooltip": {"description": "Tooltip for the per-session inject-message hover button on running task rows"},
+  "injectMessageTitle": "Send to {agentName}",
+  "@injectMessageTitle": {
+    "description": "Title of the inject-message dialog for a specific session",
+    "placeholders": {
+      "agentName": {"type": "String", "example": "Claude session 1"}
+    }
+  },
+  "injectMessageDescription": "Sends directly to this agent's stdin.",
+  "@injectMessageDescription": {"description": "Explanatory subtitle in the inject-message dialog for a single agent"},
+  "@_SHORTCUTS_AGENTS": {},
+  "shortcutsAgents": "Agents",
+  "@shortcutsAgents": {"description": "Keyboard shortcuts dialog section title for agent cluster shortcuts"},
+  "shortcutBroadcast": "Broadcast to all running agents",
+  "@shortcutBroadcast": {"description": "Description of the Cmd+Shift+B keyboard shortcut"},
+  "shortcutInjectActive": "Send message to active agent",
+  "@shortcutInjectActive": {"description": "Description of the Cmd+Shift+I keyboard shortcut"},
+  "@_RUN_ON_ALL": {},
+  "runOnAllAgents": "Run on all agents",
+  "@runOnAllAgents": {"description": "Command palette action title for running a task on all detected CLI agents"},
+  "runOnAllAgentsSubtitle": "Create a session for each of the {count} detected agents",
+  "@runOnAllAgentsSubtitle": {
+    "description": "Command palette action subtitle showing how many agents will receive the task",
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "commandBroadcastSubtitle": "⇧⌘B · Send a prompt to all {count} running agents",
+  "@commandBroadcastSubtitle": {
+    "description": "Command palette action subtitle for the broadcast action",
+    "placeholders": {
+      "count": {"type": "int", "example": "2"}
+    }
+  },
+  "@_LAST_SCAN": {},
+  "scanning": "Scanning…",
+  "@scanning": {"description": "Rescan button tooltip while detection is in progress"},
+  "lastScannedJustNow": "Last scanned: just now",
+  "@lastScannedJustNow": {"description": "Rescan button tooltip when detection finished under a minute ago"},
+  "lastScannedMinutesAgo": "Last scanned: {minutes}m ago",
+  "@lastScannedMinutesAgo": {
+    "description": "Rescan button tooltip when detection finished N minutes ago",
+    "placeholders": {
+      "minutes": {"type": "int", "example": "5"}
+    }
+  },
+  "lastScannedHoursAgo": "Last scanned: {hours}h ago",
+  "@lastScannedHoursAgo": {
+    "description": "Rescan button tooltip when detection finished N hours ago",
+    "placeholders": {
+      "hours": {"type": "int", "example": "2"}
+    }
+  },
+  "lastScannedDaysAgo": "Last scanned: {days}d ago",
+  "@lastScannedDaysAgo": {
+    "description": "Rescan button tooltip when detection finished N days ago",
+    "placeholders": {
+      "days": {"type": "int", "example": "1"}
+    }
+  },
+  "@_CLUSTER": {},
+  "clusterRunTitle": "Cluster Run · {count} agents",
+  "@clusterRunTitle": {
+    "description": "Title of the cluster comparison dialog showing all sessions created in a multi-agent run",
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "@_WORKFLOW": {},
+  "workflowTemplates": "Workflow Templates",
+  "@workflowTemplates": {"description": "Title of the workflow templates management dialog"},
+  "workflowNew": "New Workflow",
+  "@workflowNew": {"description": "Button label to create a new workflow template"},
+  "workflowEdit": "Edit",
+  "@workflowEdit": {"description": "Tooltip for the edit button on a workflow template card"},
+  "workflowDelete": "Delete",
+  "@workflowDelete": {"description": "Tooltip for the delete button on a workflow template card"},
+  "workflowLaunch": "Launch",
+  "@workflowLaunch": {"description": "Tooltip for the launch button on a workflow template card"},
+  "workflowImport": "Import",
+  "@workflowImport": {"description": "Button label to import a workflow template from JSON"},
+  "workflowExport": "Export",
+  "@workflowExport": {"description": "Tooltip for the export button on a workflow template card"},
+  "workflowNoTemplates": "No workflow templates yet.",
+  "@workflowNoTemplates": {"description": "Empty state message when no workflow templates exist"},
+  "workflowCreateHint": "Create one to define multi-agent DAG workflows.",
+  "@workflowCreateHint": {"description": "Hint text below the empty state message"},
+  "workflowDeleteConfirm": "Cannot be undone.",
+  "@workflowDeleteConfirm": {"description": "Confirmation message when deleting a workflow template"},
+  "workflowDeleteTitle": "Delete \"{name}\"?",
+  "@workflowDeleteTitle": {
+    "description": "Title of the delete confirmation dialog for a workflow template",
+    "placeholders": {"name": {"type": "String", "example": "My Workflow"}}
+  },
+  "workflowStats": "{agents} agents, {nodes} nodes, {edges} edges",
+  "@workflowStats": {
+    "description": "Stats line on a workflow template card",
+    "placeholders": {
+      "agents": {"type": "int", "example": "3"},
+      "nodes": {"type": "int", "example": "5"},
+      "edges": {"type": "int", "example": "4"}
+    }
+  },
+  "workflowEditorTitle": "Workflow Editor",
+  "@workflowEditorTitle": {"description": "Title of the workflow editor dialog"},
+  "workflowName": "Workflow Name",
+  "@workflowName": {"description": "Label for the workflow name field"},
+  "workflowDescription": "Description",
+  "@workflowDescription": {"description": "Label for the workflow description field"},
+  "workflowWorkingDir": "Working Directory",
+  "@workflowWorkingDir": {"description": "Label for the default working directory field"},
+  "workflowNodes": "Nodes",
+  "@workflowNodes": {"description": "Section header for the nodes list in the workflow editor"},
+  "workflowEdges": "Edges",
+  "@workflowEdges": {"description": "Section header for the edges list in the workflow editor"},
+  "workflowAddNode": "Add Node",
+  "@workflowAddNode": {"description": "Button to add a new node to the workflow"},
+  "workflowAddEdge": "Add Edge",
+  "@workflowAddEdge": {"description": "Button to add a new edge to the workflow"},
+  "workflowNodeName": "Node Name",
+  "@workflowNodeName": {"description": "Label for the node name field"},
+  "workflowNodeAgent": "Agent",
+  "@workflowNodeAgent": {"description": "Label for the agent selector dropdown in a node"},
+  "workflowNodePrompt": "Prompt Template",
+  "@workflowNodePrompt": {"description": "Label for the prompt template field in a node"},
+  "workflowEdgeFrom": "From",
+  "@workflowEdgeFrom": {"description": "Label for the source node dropdown in an edge"},
+  "workflowEdgeTo": "To",
+  "@workflowEdgeTo": {"description": "Label for the target node dropdown in an edge"},
+  "workflowEdgeCondition": "Condition",
+  "@workflowEdgeCondition": {"description": "Label for the edge condition dropdown"},
+  "workflowRunTitle": "Workflow Run",
+  "@workflowRunTitle": {"description": "Title of the workflow run monitor dialog"},
+  "workflowRunCancel": "Cancel Workflow",
+  "@workflowRunCancel": {"description": "Button to cancel a running workflow"},
+  "workflowRunRetry": "Retry",
+  "@workflowRunRetry": {"description": "Button to retry a failed workflow node"},
+  "workflowRunProgress": "{completed}/{total} nodes completed",
+  "@workflowRunProgress": {
+    "description": "Progress indicator in the workflow run monitor",
+    "placeholders": {
+      "completed": {"type": "int", "example": "3"},
+      "total": {"type": "int", "example": "5"}
+    }
+  },
+  "shortcutWorkflow": "Open Workflow Templates",
+  "@shortcutWorkflow": {"description": "Description of the Cmd+Shift+W keyboard shortcut in the shortcuts dialog"},
+  "customArgsLabel": "Custom launch arguments",
+  "@customArgsLabel": {"description": "Toggle title for overriding the auto-generated CLI launch flags"},
+  "customArgsDesc": "Override the auto-generated flags",
+  "@customArgsDesc": {"description": "Subtitle under the custom launch arguments toggle"},
+  "customArgsHint": "e.g. --model sonnet --permission-mode plan",
+  "@customArgsHint": {"description": "Placeholder for the custom launch arguments text field"},
+  "customArgsEmptyHint": "Leave empty to launch the bare command with no flags.",
+  "@customArgsEmptyHint": {"description": "Helper text explaining that an empty custom-args field launches with no flags"}
+}

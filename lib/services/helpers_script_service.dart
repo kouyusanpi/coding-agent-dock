@@ -1,0 +1,164 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+
+/// Writes `~/.agentdock/helpers.sh` — a Bash source-able file containing
+/// convenience wrappers for the AgentDock Cluster API.
+///
+/// The file is regenerated on every IPC server start so it stays in sync with
+/// any API changes. It is port-agnostic: all functions reference
+/// `$AGENTDOCK_API_BASE` and `$AGENTDOCK_IPC_URL`, which AgentDock injects
+/// into every spawned PTY as environment variables.
+///
+/// Agents can source the file from a Claude Code hook or bash script:
+///   source "$AGENTDOCK_HELPERS"
+class HelpersScriptService {
+  HelpersScriptService._();
+
+  static const _dirName = '.agentdock';
+  static const _fileName = 'helpers.sh';
+
+  /// Absolute path where the helpers script is written.
+  static String get path {
+    final home = Platform.environment['HOME'] ?? '';
+    return p.join(home, _dirName, _fileName);
+  }
+
+  /// Write (or overwrite) the helpers script. Silently no-ops on failure.
+  static Future<void> write() async {
+    try {
+      final file = File(path);
+      await file.parent.create(recursive: true);
+      await file.writeAsString(script, flush: true);
+      // Make it executable.
+      await Process.run('chmod', ['+x', file.path]);
+    } catch (_) {}
+  }
+
+  @visibleForTesting
+  static const script = r'''#!/usr/bin/env bash
+# AgentDock Cluster API helpers — auto-generated on each launch.
+# Source this file from Claude Code hooks or shell scripts:
+#   source "$AGENTDOCK_HELPERS"
+#
+# Required env vars (auto-injected into every AgentDock PTY):
+#   AGENTDOCK_API_BASE   — base URL, e.g. http://127.0.0.1:PORT/v1
+#   AGENTDOCK_IPC_URL    — your session's event endpoint
+#   AGENTDOCK_SESSION_ID — your session ID
+
+# List all running agent sessions (JSON).
+agentdock_list() {
+  curl -sf "${AGENTDOCK_API_BASE}/sessions"
+}
+
+# Fetch a single session's current status object (JSON).
+# Usage: agentdock_status SESSION_ID
+agentdock_status() {
+  local id="${1:?Usage: agentdock_status SESSION_ID}"
+  curl -sf "${AGENTDOCK_API_BASE}/sessions/${id}"
+}
+
+# Block until a session is no longer running, then print its final status.
+# Useful for "dispatch work to another agent, then continue once it's done".
+# Usage: agentdock_wait SESSION_ID [TIMEOUT_SECONDS] [POLL_SECONDS]
+#   TIMEOUT_SECONDS — give up after this long (default 600; 0 = no timeout)
+#   POLL_SECONDS    — interval between checks (default 2)
+# Returns 0 when the session finishes, 1 on timeout, 2 if it vanishes.
+agentdock_wait() {
+  local id="${1:?Usage: agentdock_wait SESSION_ID [TIMEOUT] [POLL]}"
+  local timeout="${2:-600}"
+  local poll="${3:-2}"
+  # Declare loop locals ONCE up front: re-running `local` inside the loop
+  # makes zsh echo the variable (typeset behaviour). 'status' is also a
+  # read-only special var in zsh, so use 'sess_status'.
+  local elapsed=0 body sess_status
+  while true; do
+    body="$(agentdock_status "$id" 2>/dev/null)"
+    if [[ -z "$body" ]]; then
+      echo "session $id not found" >&2
+      return 2
+    fi
+    sess_status="$(printf '%s' "$body" | \
+      python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" \
+      2>/dev/null)"
+    if [[ -n "$sess_status" && "$sess_status" != "running" ]]; then
+      printf '%s\n' "$sess_status"
+      return 0
+    fi
+    if [[ "$timeout" != "0" && "$elapsed" -ge "$timeout" ]]; then
+      echo "timeout waiting for session $id" >&2
+      return 1
+    fi
+    sleep "$poll"
+    elapsed=$((elapsed + poll))
+  done
+}
+
+# Read the last N lines of a session's output (JSON).
+# Usage: agentdock_output SESSION_ID [MAX_LINES]
+agentdock_output() {
+  local id="${1:?Usage: agentdock_output SESSION_ID [MAX_LINES]}"
+  local lines="${2:-50}"
+  curl -sf "${AGENTDOCK_API_BASE}/sessions/${id}/output?maxLines=${lines}"
+}
+
+# Stream a session's live output (SSE), printing text lines only.
+# Usage: agentdock_stream SESSION_ID
+agentdock_stream() {
+  local id="${1:?Usage: agentdock_stream SESSION_ID}"
+  curl -sf "${AGENTDOCK_API_BASE}/sessions/${id}/output/stream" | \
+    while IFS= read -r line; do
+      if [[ "$line" == data:* ]]; then
+        printf '%s' "${line#data: }" | \
+          python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('text',''), end='')" \
+          2>/dev/null || printf '%s\n' "${line#data: }"
+      fi
+    done
+}
+
+# Inject a message into a running session's stdin.
+# Usage: agentdock_inject SESSION_ID "message"
+agentdock_inject() {
+  local id="${1:?Usage: agentdock_inject SESSION_ID MESSAGE}"
+  local text="${2:?Usage: agentdock_inject SESSION_ID MESSAGE}"
+  # Escape double quotes in text.
+  local escaped="${text//\"/\\\"}"
+  curl -sf -X POST "${AGENTDOCK_API_BASE}/sessions/${id}/inject" \
+    -H "Content-Type: application/json" \
+    -d "{\"text\": \"${escaped}\"}"
+}
+
+# Post an event to AgentDock from the current session.
+# Usage: agentdock_notify [TYPE] [DATA_JSON]
+#   TYPE    — stop | result | notify (default: notify)
+#   DATA    — arbitrary JSON object (default: {})
+agentdock_notify() {
+  local type="${1:-notify}"
+  local data="${2:-{}}"
+  curl -sf -X POST "${AGENTDOCK_IPC_URL}" \
+    -H "Content-Type: application/json" \
+    -d "{\"type\": \"${type}\", \"data\": ${data}}" || true
+}
+
+# Print the IDs of all currently running sessions.
+# Usage: agentdock_running_ids
+agentdock_running_ids() {
+  agentdock_list | \
+    python3 -c "import sys,json; [print(s['id']) for s in json.load(sys.stdin).get('sessions',[]) if s.get('status')=='running']" \
+    2>/dev/null
+}
+
+# Broadcast a message to all running sessions except the current one.
+# Usage: agentdock_broadcast "message"
+agentdock_broadcast() {
+  local msg="${1:?Usage: agentdock_broadcast MESSAGE}"
+  local self="${AGENTDOCK_SESSION_ID:-0}"
+  while IFS= read -r id; do
+    if [[ "$id" != "$self" ]]; then
+      agentdock_inject "$id" "$msg"
+    fi
+  done < <(agentdock_running_ids)
+}
+''';
+}

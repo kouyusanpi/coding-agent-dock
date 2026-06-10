@@ -1,0 +1,815 @@
+{
+  "@@locale": "zh",
+
+  "@_APP_CHROME": {
+    "description": "应用标题与界面文字"
+  },
+  "appTitle": "Agent CLI 管理器",
+  "@appTitle": {
+    "description": "应用标题，显示在应用栏和窗口标题中"
+  },
+  "agentOSCli": "AgentDock",
+  "@agentOSCli": {
+    "description": "侧边栏顶部展示的品牌名称"
+  },
+
+  "@_SIDEBAR": {
+    "description": "侧边栏导航文字"
+  },
+  "localEnvironments": "本地环境",
+  "@localEnvironments": {
+    "description": "侧边栏中本地检测到的 CLI 环境标题"
+  },
+  "daemonActive": "守护进程运行中",
+  "@daemonActive": {
+    "description": "后台守护进程运行中的状态标识"
+  },
+  "missing": "未安装",
+  "@missing": {
+    "description": "CLI Agent 未安装时的状态标识"
+  },
+
+  "@_DETECTION": {
+    "description": "Agent 检测与扫描文字"
+  },
+  "detectingInstalled": "正在检测已安装的 Agent",
+  "@detectingInstalled": {
+    "description": "应用正在检测已安装的 CLI 时显示的标签"
+  },
+  "scanningEnvironments": "正在扫描本地环境...",
+  "@scanningEnvironments": {
+    "description": "正在扫描 CLI 环境时的状态消息"
+  },
+  "scan": "扫描",
+  "@scan": {
+    "description": "触发扫描已安装 CLI Agent 的按钮"
+  },
+  "rescan": "重新扫描",
+  "@rescan": {
+    "description": "重新扫描已安装 CLI Agent 的按钮"
+  },
+  "clearCache": "清除缓存",
+  "@clearCache": {
+    "description": "清除本地检测缓存的按钮"
+  },
+
+  "@_SESSION_LIST": {
+    "description": "会话列表与浏览文字"
+  },
+  "sessions": "会话",
+  "@sessions": {
+    "description": "会话列表的标题"
+  },
+  "noSessionsYet": "暂无会话",
+  "@noSessionsYet": {
+    "description": "没有会话时的空状态消息"
+  },
+  "createSessionToStart": "创建一个新会话开始使用。",
+  "@createSessionToStart": {
+    "description": "空状态提示，引导用户创建第一个会话"
+  },
+  "searchResults": "搜索结果",
+  "@searchResults": {
+    "description": "筛选搜索结果上方的标题"
+  },
+  "showingAllEnvironments": "显示所有环境中的匹配结果。",
+  "@showingAllEnvironments": {
+    "description": "搜索结果跨所有环境的说明副标题"
+  },
+  "selectPastSession": "选择一个历史会话或创建新会话。",
+  "@selectPastSession": {
+    "description": "未选择会话时的提示"
+  },
+  "initializeNewSession": "初始化 {agentName} 新会话",
+  "@initializeNewSession": {
+    "description": "包含 Agent 名称的新会话对话框标题",
+    "placeholders": {
+      "agentName": {
+        "type": "String",
+        "example": "Claude Code"
+      }
+    }
+  },
+
+  "@_SESSION_STATUS": {
+    "description": "会话状态标签"
+  },
+  "statusRunning": "运行中",
+  "@statusRunning": {
+    "description": "正在运行的会话状态标签"
+  },
+  "statusCompleted": "已完成",
+  "@statusCompleted": {
+    "description": "成功完成的会话状态标签"
+  },
+  "statusFailed": "失败",
+  "@statusFailed": {
+    "description": "出错的会话状态标签"
+  },
+  "statusCancelled": "已取消",
+  "@statusCancelled": {
+    "description": "被取消的会话状态标签"
+  },
+  "statusLaunched": "已启动",
+  "@statusLaunched": {
+    "description": "已在本地终端中启动的会话状态标签"
+  },
+  "statusCreated": "已创建",
+  "@statusCreated": {
+    "description": "已创建但尚未启动的会话状态标签"
+  },
+
+  "@_TIME_RELATIVE": {
+    "description": "相对时间显示文字"
+  },
+  "justNow": "刚刚",
+  "@justNow": {
+    "description": "刚发生的事件的相对时间戳"
+  },
+  "minutesAgo": "{count}分钟前",
+  "@minutesAgo": {
+    "description": "N 分钟前的相对时间戳",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "hoursAgo": "{count}小时前",
+  "@hoursAgo": {
+    "description": "N 小时前的相对时间戳",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "daysAgo": "{count}天前",
+  "@daysAgo": {
+    "description": "N 天前的相对时间戳",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+
+  "@_NEW_SESSION_DIALOG": {
+    "description": "新会话创建对话框文字"
+  },
+  "newSessionTitle": "初始化新会话",
+  "@newSessionTitle": {
+    "description": "创建新会话的对话框标题"
+  },
+  "workspacePath": "工作区路径",
+  "@workspacePath": {
+    "description": "工作区路径输入框标签"
+  },
+  "workspaceHint": "~/projects/my-project",
+  "@workspaceHint": {
+    "description": "工作区路径输入框的占位提示"
+  },
+  "sessionName": "会话名称",
+  "@sessionName": {
+    "description": "会话名称输入框标签"
+  },
+  "sessionNameHint": "重构 API 路由...",
+  "@sessionNameHint": {
+    "description": "会话名称输入框的占位提示"
+  },
+  "promptInput": "任务提示",
+  "@promptInput": {
+    "description": "任务提示输入框标签"
+  },
+  "promptHint": "描述你希望 agent 执行的任务...",
+  "@promptHint": {
+    "description": "任务提示输入框的占位提示"
+  },
+  "cancel": "取消",
+  "@cancel": {
+    "description": "取消创建会话并关闭对话框的按钮"
+  },
+  "createAndRun": "创建并运行",
+  "@createAndRun": {
+    "description": "创建新会话并立即启动 Agent 的按钮"
+  },
+  "createFailed": "创建会话失败：{error}",
+  "@createFailed": {
+    "description": "会话创建失败时显示的错误消息",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "权限被拒绝"
+      }
+    }
+  },
+
+  "@_SESSION_CARD": {
+    "description": "会话卡片显示文字"
+  },
+  "workspace": "工作区",
+  "@workspace": {
+    "description": "会话卡片上工作区路径的前缀标签"
+  },
+  "deleteSession": "删除会话",
+  "@deleteSession": {
+    "description": "删除会话的提示与对话框标题"
+  },
+  "deleteSessionConfirm": "确定删除会话 \"{name}\" 吗？此操作无法撤销。",
+  "@deleteSessionConfirm": {
+    "description": "删除会话前的确认消息",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "重构 API 路由"
+      }
+    }
+  },
+  "delete": "删除",
+  "@delete": {
+    "description": "确认删除操作的按钮"
+  },
+
+  "@_TERMINAL": {
+    "description": "应用内终端界面文字"
+  },
+  "processExited": "进程已退出（代码 {code}）。会话已保存，可以恢复。",
+  "@processExited": {
+    "description": "终端进程退出时显示的横幅",
+    "placeholders": {
+      "code": {
+        "type": "int",
+        "example": "0"
+      }
+    }
+  },
+  "relaunchSession": "恢复会话",
+  "@relaunchSession": {
+    "description": "重新启动 CLI 并恢复已保存会话的按钮"
+  },
+  "tasksSection": "任务列表",
+  "@tasksSection": {
+    "description": "侧边栏任务面板的分组标题"
+  },
+  "newTask": "新建任务",
+  "@newTask": {
+    "description": "创建新任务会话的按钮"
+  },
+  "runningCount": "{count} 个运行中",
+  "@runningCount": {
+    "description": "显示正在运行的任务终端数量的徽标",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "noOpenTerminal": "在左侧点击任务以打开终端",
+  "@noOpenTerminal": {
+    "description": "终端面板没有打开任务时的空状态提示"
+  },
+  "closeTerminal": "关闭终端",
+  "@closeTerminal": {
+    "description": "终端标签页关闭按钮的提示"
+  },
+  "searchTasks": "搜索任务...",
+  "@searchTasks": {
+    "description": "任务面板内联搜索框的占位文字"
+  },
+  "allAgents": "全部",
+  "@allAgents": {
+    "description": "清空选择（显示全部 agent）的过滤标签"
+  },
+
+  "@_SEARCH": {
+    "description": "搜索相关文字"
+  },
+  "searchHint": "搜索会话、标签或工作区...",
+  "@searchHint": {
+    "description": "搜索输入框的占位文字"
+  },
+  "sessionSearchComing": "会话搜索即将推出",
+  "@sessionSearchComing": {
+    "description": "搜索功能尚未实现时的占位消息"
+  },
+  "tryDifferentSearch": "尝试其他搜索词或检查本地 CLI 路径。",
+  "@tryDifferentSearch": {
+    "description": "搜索无结果时的提示"
+  },
+
+  "@_CUSTOM_AGENT": {
+    "description": "添加/删除自定义 Agent 相关文字"
+  },
+  "addCustomAgent": "添加自定义 Agent",
+  "@addCustomAgent": {
+    "description": "添加自定义 Agent 对话框标题和 + 按钮提示"
+  },
+  "displayNameLabel": "显示名称",
+  "@displayNameLabel": {
+    "description": "添加 Agent 对话框中显示名称字段的标签"
+  },
+  "displayNameHint": "例如：My Agent CLI",
+  "@displayNameHint": {
+    "description": "添加 Agent 对话框中显示名称字段的提示"
+  },
+  "binaryLabel": "可执行文件（命令名或完整路径）",
+  "@binaryLabel": {
+    "description": "添加 Agent 对话框中二进制字段的标签"
+  },
+  "binaryHint": "例如：myagent 或 /usr/local/bin/myagent",
+  "@binaryHint": {
+    "description": "添加 Agent 对话框中二进制字段的提示"
+  },
+  "browse": "浏览…",
+  "@browse": {
+    "description": "文件选择按钮提示"
+  },
+  "versionFlagLabel": "版本参数",
+  "@versionFlagLabel": {
+    "description": "添加 Agent 对话框中版本参数字段的标签"
+  },
+  "addAgentButton": "添加 Agent",
+  "@addAgentButton": {
+    "description": "添加 Agent 对话框的确认按钮"
+  },
+  "nameAndBinaryRequired": "名称和可执行文件为必填项",
+  "@nameAndBinaryRequired": {
+    "description": "添加 Agent 对话框中的校验错误"
+  },
+  "agentAlreadyExists": "已存在使用此可执行文件的 Agent",
+  "@agentAlreadyExists": {
+    "description": "添加 Agent 对话框中的重复错误"
+  },
+  "removeCustomAgent": "移除自定义 Agent",
+  "@removeCustomAgent": {
+    "description": "删除用户添加的 Agent 的右键菜单项"
+  },
+  "hideAgent": "从列表隐藏",
+  "@hideAgent": {
+    "description": "隐藏内置 Agent 的右键菜单项"
+  },
+  "hiddenAgentsCount": "已隐藏 {count} 个",
+  "@hiddenAgentsCount": {
+    "description": "显示已隐藏 Agent 数量的底部标签",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "showAllAgents": "全部显示",
+  "@showAllAgents": {
+    "description": "恢复显示所有已隐藏 Agent"
+  },
+  "installAgentTitle": "安装 {name}",
+  "@installAgentTitle": {
+    "description": "安装提示对话框标题",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Claude Code"
+      }
+    }
+  },
+  "agentNotFound": "未在您的系统上找到 {name}。",
+  "@agentNotFound": {
+    "description": "安装提示对话框正文",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Claude Code"
+      }
+    }
+  },
+  "installWith": "安装命令：",
+  "@installWith": {
+    "description": "安装提示对话框中命令上方的标签"
+  },
+  "afterInstallRescan": "安装完成后，点击 ↻ 按钮重新扫描。",
+  "@afterInstallRescan": {
+    "description": "安装提示对话框底部提示"
+  },
+  "close": "关闭",
+  "@close": {
+    "description": "通用关闭按钮"
+  },
+
+  "@_TERMINAL_TOOLBAR": {
+    "description": "终端工具栏文字"
+  },
+  "broadcastTooltip": "向所有运行中的 Agent 广播消息",
+  "@broadcastTooltip": {
+    "description": "广播（喇叭）工具栏按钮提示"
+  },
+  "closeBroadcast": "关闭广播",
+  "@closeBroadcast": {
+    "description": "广播栏打开时按钮的提示"
+  },
+  "broadcastHint": "发送给所有运行中的 Agent…",
+  "@broadcastHint": {
+    "description": "广播输入框占位文字"
+  },
+  "broadcastTargets": "→ {count} 个 Agent",
+  "@broadcastTargets": {
+    "description": "显示广播目标数量的徽章",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "attachFilesTooltip": "附加文件（或拖放 / Cmd+V 粘贴图片）",
+  "@attachFilesTooltip": {
+    "description": "附加文件工具栏按钮提示"
+  },
+  "splitView": "分屏视图",
+  "@splitView": {
+    "description": "分屏工具栏按钮提示"
+  },
+  "exitSplitView": "退出分屏",
+  "@exitSplitView": {
+    "description": "分屏激活时按钮的提示"
+  },
+
+  "@_TASK_CONTEXT_MENU": {
+    "description": "任务列表右键菜单文字"
+  },
+  "newTaskHere": "在此新建任务",
+  "@newTaskHere": {
+    "description": "右键菜单项：在同一工作目录新建任务"
+  },
+  "newTaskSameFolder": "在同一文件夹新建任务",
+  "@newTaskSameFolder": {
+    "description": "任务条目 ↪ 悬停按钮的提示"
+  },
+  "sendToAgent": "发送给 Agent",
+  "@sendToAgent": {
+    "description": "派发给其他 Agent 的右键菜单分区标题"
+  },
+  "openInFinder": "在 Finder 中打开",
+  "@openInFinder": {
+    "description": "打开工作目录的右键菜单项"
+  },
+  "copyPrompt": "复制提示词",
+  "@copyPrompt": {
+    "description": "复制任务提示词的右键菜单项"
+  },
+  "copyOutput": "复制输出",
+  "@copyOutput": {
+    "description": "复制会话输出的右键菜单项"
+  },
+  "tapToCopyOutput": "点击复制完整输出",
+  "@tapToCopyOutput": {
+    "description": "任务详情面板中输出摘要的提示"
+  },
+
+  "@_ERRORS": {
+    "description": "错误消息文字"
+  },
+  "cliNotInstalled": "CLI {name} 未在本系统上安装。请运行扫描检测可用的 CLI。",
+  "@cliNotInstalled": {
+    "description": "所需 CLI Agent 未安装时的错误提示",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Claude Code"
+      }
+    }
+  },
+  "agentsLabel": "智能体",
+  "dispatchingToAgents": "同时分发给 {count} 个智能体",
+  "dispatchToAgents": "分发给 {count} 个智能体",
+  "resetToAutoName": "恢复自动命名",
+  "claudeOptions": "Claude 选项",
+  "modelLabel": "模型",
+  "thinkingLabel": "思考力度",
+  "permissionsLabel": "权限模式",
+  "skipAllPermissions": "跳过所有权限确认",
+  "nonInteractive": "非交互模式",
+  "nonInteractiveDesc": "--print,输出后退出",
+  "quickSelect": "快速选择",
+  "typeModelName": "或输入任意模型 API 名称",
+  "modelDefaultLabel": "默认(Opus 4.8,1M 上下文)",
+  "modelSonnetLabel": "Sonnet 4.6 — 日常任务首选",
+  "modelHaikuLabel": "Haiku 4.5 — 最快,适合快速问答",
+  "modelOpusPinned": "固定 Opus 4.8",
+  "modelSonnetPinned": "固定 Sonnet 4.6",
+  "effortLow": "低",
+  "effortMedium": "中",
+  "effortHigh": "高",
+  "effortXhigh": "超高",
+  "effortMax": "最高",
+  "permDefault": "默认",
+  "permAcceptEdits": "自动接受编辑",
+  "permAuto": "自动",
+  "permBypass": "绕过全部权限",
+  "permDontAsk": "不再询问",
+  "permPlan": "仅规划",
+  "newTaskSubtitle": "创建新的智能体任务",
+  "rescanAgents": "重新扫描 Agent",
+  "rescanAgentsSubtitle": "重新检测已安装的 CLI 工具",
+  "openSettings": "打开设置",
+  "openSettingsSubtitle": "字体大小、通知、CLI 路径",
+  "paletteSearchHint": "搜索会话、@agent 过滤或运行命令…",
+  "noResults": "无结果",
+  "settings": "设置",
+  "sectionTerminal": "终端",
+  "sectionNotifications": "通知",
+  "fontSize": "字体大小",
+  "taskCompletionAlerts": "任务完成提醒",
+  "taskCompletionAlertsDesc": "终端任务结束时发送系统通知",
+  "binaryPathOverride": "二进制路径覆盖",
+  "binaryPathDesc": "留空则自动检测(优先 ~/.local/bin/claude)",
+  "taskStillRunningStop": "该任务仍在运行,停止并关闭吗?",
+  "taskStillRunningClose": "该任务仍在运行,关闭并停止吗?",
+  "keepRunning": "继续运行",
+  "stopAndClose": "停止并关闭",
+  "cmdNHint": "按 Cmd+N 新建任务",
+  "savedToDesktop": "已保存到 ~/Desktop/{name}",
+  "exportFailed": "导出失败:{error}",
+  "followUp": "追问",
+  "clearFinishedSessions": "清除已完成/失败的会话",
+  "insertPathsTooltip": "立即将所有路径输入到终端",
+  "terminalNotRunning": "终端未运行",
+  "insert": "插入",
+  "clearAllAttachments": "清除所有附件",
+  "previewFailed": "预览失败:{error}",
+  "searchInTerminal": "搜索…"
+,
+  "@_SESSION_PINNING": {},
+  "pinSession": "置顶",
+  "@pinSession": {
+    "description": "上下文菜单：将会话置顶"
+  },
+  "unpinSession": "取消置顶",
+  "@unpinSession": {
+    "description": "上下文菜单：取消置顶"
+  }
+,
+  "@_RELAY": {},
+  "relayToAll": "分发给所有智能体",
+  "@relayToAll": {"description": "上下文菜单：将本会话输出分发给所有其他智能体"},
+  "relayToAllSubtitle": "另外 {count} 个智能体",
+  "@relayToAllSubtitle": {"description": "显示将接收任务的智能体数量", "placeholders": {"count": {"type": "int", "example": "3"}}}
+,
+  "@_KEYBOARD_SHORTCUTS": {},
+  "agentFound": "已检测",
+  "@agentFound": {"description": "侧边栏智能体徽章：已检测到该命令行工具"},
+  "keyboardShortcuts": "键盘快捷键",
+  "@keyboardShortcuts": {"description": "键盘快捷键帮助对话框标题"},
+  "shortcutsGlobal": "全局",
+  "@shortcutsGlobal": {"description": "快捷键对话框分区：全局快捷键"},
+  "shortcutsTabs": "终端标签页",
+  "@shortcutsTabs": {"description": "快捷键对话框分区：标签页导航"},
+  "shortcutsTerminal": "终端内",
+  "@shortcutsTerminal": {"description": "快捷键对话框分区：终端内快捷键"},
+  "shortcutCommandPalette": "命令面板",
+  "@shortcutCommandPalette": {"description": "快捷键说明：打开命令面板"},
+  "shortcutNewTaskClipboard": "从剪贴板新建任务",
+  "@shortcutNewTaskClipboard": {"description": "快捷键说明：从剪贴板创建新任务"},
+  "shortcutNextTab": "下一标签页",
+  "@shortcutNextTab": {"description": "快捷键说明：切换到下一个终端标签页"},
+  "shortcutPrevTab": "上一标签页",
+  "@shortcutPrevTab": {"description": "快捷键说明：切换到上一个终端标签页"},
+  "shortcutJumpToTab": "跳转到第 1–9 个标签页",
+  "@shortcutJumpToTab": {"description": "快捷键说明：按位置直接跳转到终端标签页"},
+  "shortcutCloseTab": "关闭标签页",
+  "@shortcutCloseTab": {"description": "快捷键说明：关闭当前终端标签页"},
+  "shortcutSearch": "在终端中搜索",
+  "@shortcutSearch": {"description": "快捷键说明：打开终端搜索栏"},
+  "shortcutExport": "导出终端内容",
+  "@shortcutExport": {"description": "快捷键说明：将终端输出导出到桌面"},
+  "shortcutShowShortcuts": "键盘快捷键",
+  "@shortcutShowShortcuts": {"description": "快捷键说明：显示本快捷键面板"}
+,
+  "@_SESSION_NOTES": {},
+  "editNote": "编辑备注",
+  "@editNote": {"description": "上下文菜单：添加或编辑会话备注"},
+  "notePlaceholder": "为此会话添加备注...",
+  "@notePlaceholder": {"description": "备注编辑对话框的占位文本"},
+  "noteSaved": "备注已保存",
+  "@noteSaved": {"description": "保存备注后的提示（如静默则未用）"}
+,
+  "save": "保存",
+  "@save": {"description": "Generic save button label"}
+,
+  "exportAsMarkdown": "导出为 Markdown",
+  "@exportAsMarkdown": {"description": "Context menu: export session metadata + output as a Markdown file to Desktop"}
+,
+  "@_EXPORT_MD": {},
+  "agentLabel": "智能体",
+  "@agentLabel": {"description": "Markdown 导出标签：智能体名称"},
+  "statusLabel": "状态",
+  "@statusLabel": {"description": "Markdown 导出标签：会话状态"},
+  "workingDirectory": "工作目录",
+  "@workingDirectory": {"description": "Markdown 导出/详情面板的工作目录标签"},
+  "duration": "耗时",
+  "@duration": {"description": "Markdown 导出标签：会话耗时"},
+  "inputPrompt": "任务",
+  "@inputPrompt": {"description": "Markdown 导出章节标题：输入提示/任务"},
+  "notes": "备注",
+  "@notes": {"description": "Markdown 导出章节标题：用户备注"}
+,
+  "@_SORT": {},
+  "sortLabel": "排序",
+  "@sortLabel": {"description": "任务面板排序按钮的提示文字"},
+  "sortNewest": "最新优先",
+  "@sortNewest": {"description": "排序选项：最新会话在顶"},
+  "sortOldest": "最早优先",
+  "@sortOldest": {"description": "排序选项：最早会话在顶"},
+  "sortByName": "A → Z",
+  "@sortByName": {"description": "排序选项：按会话名称字母顺序"},
+  "sortByDuration": "耗时最长优先",
+  "@sortByDuration": {"description": "排序选项：耗时最长的会话在顶"}
+,
+  "@_STATS": {},
+  "statsTitle": "会话统计",
+  "@statsTitle": {"description": "会话统计对话框标题"},
+  "statsAgent": "智能体",
+  "@statsAgent": {"description": "统计表格列：智能体名称"},
+  "statsTotal": "总数",
+  "@statsTotal": {"description": "统计表格列：会话总数"},
+  "statsDone": "已完成",
+  "@statsDone": {"description": "统计表格列：已完成会话数"},
+  "statsFailed": "失败",
+  "@statsFailed": {"description": "统计表格列：失败/取消的会话数"},
+  "statsAvgTime": "均耗时",
+  "@statsAvgTime": {"description": "统计表格列：会话平均耗时"},
+  "statsTotalTime": "总计算时间",
+  "@statsTotalTime": {"description": "统计页脚：所有会话的总计算时间"},
+  "noStatsYet": "暂无会话记录。",
+  "@noStatsYet": {"description": "当没有会话数据时显示"}
+,
+  "@_OUTPUT_VIEWER": {},
+  "tapToViewOutput": "点击查看完整输出",
+  "@tapToViewOutput": {"description": "会话详情面板输出摘要的提示文字"},
+  "viewFullOutput": "完整输出",
+  "@viewFullOutput": {"description": "完整输出查看器对话框标题"},
+  "exitCode": "退出码 {code}",
+  "@exitCode": {"description": "会话详情面板中的退出码标签", "placeholders": {"code": {"type": "int", "example": "0"}}}
+,
+  "retryAllFailed": "重试失败",
+  "@retryAllFailed": {"description": "任务面板页脚重试失败按钮的提示文字"},
+  "retrySession": "重试此会话",
+  "@retrySession": {"description": "失败/取消会话行悬停按钮提示"}
+,
+  "cloneSession": "克隆会话",
+  "@cloneSession": {"description": "Context menu: clone a session with the same prompt and working directory"}
+,
+  "@_WORKSPACE_BOOKMARKS": {},
+  "addBookmark": "保存为书签",
+  "@addBookmark": {"description": "工作目录字段旁书签保存按钮的提示文字"},
+  "bookmarkNameHint": "例：我的 Flutter 项目",
+  "@bookmarkNameHint": {"description": "书签命名对话框的占位文字"},
+  "bookmarkSaved": "书签已保存",
+  "@bookmarkSaved": {"description": "保存工作目录书签后的提示消息"},
+  "@_COLOR_LABELS": {},
+  "setColor": "设置颜色标签",
+  "@setColor": {"description": "会话颜色标签设置菜单项及对话框标题"},
+  "clearColor": "清除颜色",
+  "@clearColor": {"description": "颜色选择器中的清除按钮"}
+,
+  "@_GROUP_BY_DIR": {},
+  "groupByProject": "按项目分组",
+  "@groupByProject": {"description": "任务面板标题栏中按目录分组切换按钮的提示文字"},
+  "groupOther": "其他",
+  "@groupOther": {"description": "没有设置工作目录的会话的分组标题"}
+,
+  "@_PROMPT_TEMPLATES": {},
+  "promptTemplatesTooltip": "提示词模板",
+  "@promptTemplatesTooltip": {"description": "终端工具栏中提示词模板按钮的提示文字"},
+  "@_SHARED_MEMORY": {},
+  "sharedMemoryTooltip": "项目共享记忆",
+  "@sharedMemoryTooltip": {"description": "项目分组标题上共享记忆按钮的提示文字"},
+  "sharedMemoryTitle": "项目共享记忆",
+  "@sharedMemoryTitle": {"description": "项目共享记忆编辑对话框的标题"},
+  "sharedMemoryDescription": "与本项目下所有智能体共享 —— 会话启动时自动同步进 CLAUDE.md、AGENTS.md 和 GEMINI.md。",
+  "@sharedMemoryDescription": {"description": "项目共享记忆编辑对话框的说明副标题"},
+  "sharedMemoryPlaceholder": "在此填写要与本项目所有智能体共享的约定、上下文与备注……",
+  "@sharedMemoryPlaceholder": {"description": "项目共享记忆编辑框的占位提示文字"},
+  "@_BROADCAST": {},
+  "broadcastTooltip": "广播给所有运行中的智能体",
+  "broadcastTitle": "广播给 {count} 个运行中的智能体",
+  "@broadcastTitle": {
+    "description": "广播对话框标题，显示将收到消息的智能体数量",
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "broadcastDescription": "直接发送到每个运行中智能体的标准输入 —— 所有智能体同时接收。",
+  "broadcastPlaceholder": "输入要广播给所有运行中智能体的消息或提示词……",
+  "broadcastSend": "发送",
+  "@_INJECT_MESSAGE": {},
+  "injectMessageTooltip": "发送给此智能体",
+  "injectMessageTitle": "发送给 {agentName}",
+  "@injectMessageTitle": {
+    "description": "单个会话注入消息对话框的标题",
+    "placeholders": {
+      "agentName": {"type": "String", "example": "Claude 会话 1"}
+    }
+  },
+  "injectMessageDescription": "直接发送到此智能体的标准输入。",
+  "@_SHORTCUTS_AGENTS": {},
+  "shortcutsAgents": "智能体集群",
+  "shortcutBroadcast": "广播给所有运行中的智能体",
+  "shortcutInjectActive": "向当前活动智能体发送消息",
+  "@_RUN_ON_ALL": {},
+  "runOnAllAgents": "在所有智能体上运行",
+  "runOnAllAgentsSubtitle": "为 {count} 个已检测到的智能体各创建一个会话",
+  "@runOnAllAgentsSubtitle": {
+    "description": "命令面板操作副标题，显示将收到任务的智能体数量",
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "commandBroadcastSubtitle": "⇧⌘B · 向所有 {count} 个运行中的智能体发送提示词",
+  "@commandBroadcastSubtitle": {
+    "description": "命令面板广播操作的副标题",
+    "placeholders": {
+      "count": {"type": "int", "example": "2"}
+    }
+  },
+  "@_LAST_SCAN": {},
+  "scanning": "正在扫描…",
+  "lastScannedJustNow": "上次扫描：刚刚",
+  "lastScannedMinutesAgo": "上次扫描：{minutes} 分钟前",
+  "@lastScannedMinutesAgo": {
+    "placeholders": {
+      "minutes": {"type": "int", "example": "5"}
+    }
+  },
+  "lastScannedHoursAgo": "上次扫描：{hours} 小时前",
+  "@lastScannedHoursAgo": {
+    "placeholders": {
+      "hours": {"type": "int", "example": "2"}
+    }
+  },
+  "lastScannedDaysAgo": "上次扫描：{days} 天前",
+  "@lastScannedDaysAgo": {
+    "placeholders": {
+      "days": {"type": "int", "example": "1"}
+    }
+  },
+  "@_CLUSTER": {},
+  "clusterRunTitle": "集群运行 · {count} 个智能体",
+  "@clusterRunTitle": {
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "@_WORKFLOW": {},
+  "workflowTemplates": "工作流模板",
+  "workflowNew": "新建工作流",
+  "workflowEdit": "编辑",
+  "workflowDelete": "删除",
+  "workflowLaunch": "启动",
+  "workflowImport": "导入",
+  "workflowExport": "导出",
+  "workflowNoTemplates": "暂无工作流模板。",
+  "workflowCreateHint": "创建一个来定义多智能体 DAG 工作流。",
+  "workflowDeleteConfirm": "此操作无法撤销。",
+  "workflowDeleteTitle": "删除「{name}」？",
+  "@workflowDeleteTitle": {
+    "placeholders": {"name": {"type": "String", "example": "我的工作流"}}
+  },
+  "workflowStats": "{agents} 个智能体，{nodes} 个节点，{edges} 条边",
+  "@workflowStats": {
+    "placeholders": {
+      "agents": {"type": "int", "example": "3"},
+      "nodes": {"type": "int", "example": "5"},
+      "edges": {"type": "int", "example": "4"}
+    }
+  },
+  "workflowEditorTitle": "工作流编辑器",
+  "workflowName": "工作流名称",
+  "workflowDescription": "描述",
+  "workflowWorkingDir": "工作目录",
+  "workflowNodes": "节点",
+  "workflowEdges": "边",
+  "workflowAddNode": "添加节点",
+  "workflowAddEdge": "添加边",
+  "workflowNodeName": "节点名称",
+  "workflowNodeAgent": "智能体",
+  "workflowNodePrompt": "提示词模板",
+  "workflowEdgeFrom": "起始节点",
+  "workflowEdgeTo": "目标节点",
+  "workflowEdgeCondition": "条件",
+  "workflowRunTitle": "工作流运行",
+  "workflowRunCancel": "取消工作流",
+  "workflowRunRetry": "重试",
+  "workflowRunProgress": "已完成 {completed}/{total} 个节点",
+  "@workflowRunProgress": {
+    "placeholders": {
+      "completed": {"type": "int", "example": "3"},
+      "total": {"type": "int", "example": "5"}
+    }
+  },
+  "shortcutWorkflow": "打开工作流模板",
+  "customArgsLabel": "自定义启动参数",
+  "customArgsDesc": "覆盖自动生成的参数",
+  "customArgsHint": "例如 --model sonnet --permission-mode plan",
+  "customArgsEmptyHint": "留空则不带任何参数启动该命令。"
+}

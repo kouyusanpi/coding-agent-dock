@@ -1,0 +1,6 @@
+{
+  "name": "AgentOS CLI Manager",
+  "description": "Desktop-style web app to manage, search, and continue programming sessions across various AI agent CLIs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

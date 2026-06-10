@@ -1,0 +1,68 @@
+name: claude_code_cli_flutter
+description: "AI programming agent CLI detection & management on desktop"
+publish_to: 'none'
+version: 1.0.28+29
+
+environment:
+  sdk: ^3.11.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+
+  cupertino_icons: ^1.0.8
+
+  # --- SharedPreferences: lightweight key-value for app settings ---
+  shared_preferences: ^2.3.5
+
+  # --- Drift (SQLite): full relational storage for task sessions ---
+  drift: ^2.21.0
+  sqlite3_flutter_libs: ^0.5.0
+
+  # --- Utilities ---
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  provider: ^6.1.2
+  file_picker: ^11.0.2
+  xterm: ^4.0.0
+  flutter_pty: ^0.4.2
+  uuid: ^4.5.3
+  pasteboard: ^0.5.0
+  desktop_drop: ^0.7.1
+
+# Pin path_provider_foundation below 2.5.0: from 2.5.0 it builds via Dart
+# native-assets (the `objective_c` package), which Flutter 3.41 compiles for
+# the HOST arch only (arm64) — producing an arm64-only objective_c.framework
+# that crashes the app on Intel Macs. 2.4.4 uses the pure-Swift CocoaPod, which
+# builds a universal (x86_64 + arm64) binary. Revisit once Flutter ships
+# multi-arch native-assets for macOS.
+dependency_overrides:
+  path_provider_foundation: 2.4.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+  # Internationalization
+  intl_utils: ^2.8.7
+
+  # Code generation for Drift database
+  drift_dev: ^2.21.0
+  build_runner: ^2.4.13
+  patrol: ^4.6.1
+
+# Patrol E2E test configuration (tests live in patrol_test/, run via `patrol test -d macos`)
+patrol:
+  app_name: AgentDock
+  macos:
+    bundle_id: com.yyqxy.plugins.claudeCodeCliFlutter
+
+flutter:
+  generate: true
+  uses-material-design: true
